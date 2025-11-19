@@ -1,0 +1,2 @@
+This repo is a personal copy of combined codes it two other repo's soucres are :https://github.com/Theo1996/mangadex-plus-plus-json-history-export-imporr and https://github.com/MangaDexPP/userscript
+The use of these is ment for My own learning and Free to the public until such time as the Original code makers revoke or inform me they do not wish me to publicl use these codes. all rights go to the orginal coders and outside of what tweaks i may do to my own version. 
