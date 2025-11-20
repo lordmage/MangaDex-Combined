@@ -42,7 +42,7 @@ A comprehensive userscript that enhances your MangaDex experience with quality-o
 
 ### Installation Steps
 1. Install your preferred userscript manager
-2. Click the raw script link: [MangaDex++ Combined.user.js](https://github.com/lordmage/MangaDex-Combined/releases)
+2. Click the raw script link: [MangaDex++ Combined.user.js](https://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js) | [Source](https://github.com/lordmage/MangaDex-Combined/releases )
 3. Confirm installation in your userscript manager
 4. Navigate to [MangaDex.org](https://mangadex.org) to see the enhancements
 
