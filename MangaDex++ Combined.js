@@ -235,36 +235,54 @@ function getFormat(pathname) {
     }
 
     /**
-     * Add Export/Import buttons to the UI
+     * Add Export/Import buttons above the toggle controls
      */
     function addExportImportButtons() {
         try {
             const checkForElement = setInterval(function() {
                 try {
-                    const targetDiv = document.querySelector('div.item.active');
-                    if (targetDiv) {
+                    // Look for the controls container where toggle buttons are added
+                    const controlsContainer = document.querySelector('.controls');
+
+                    if (controlsContainer) {
                         clearInterval(checkForElement);
+
+                        // Check if buttons already exist to avoid duplicates
+                        if (controlsContainer.querySelector('.mangadex-export-import-buttons')) {
+                            return;
+                        }
+
+                        // Create export/import buttons container
                         const buttonContainer = document.createElement('div');
+                        buttonContainer.className = 'mangadex-export-import-buttons';
                         buttonContainer.style.display = 'flex';
                         buttonContainer.style.flexDirection = 'row';
-                        buttonContainer.style.position = 'absolute';
-                        buttonContainer.style.top = '-30px';
-                        buttonContainer.style.left = '0';
-                        buttonContainer.style.zIndex = '99999';
+                        buttonContainer.style.gap = '5px';
+                        buttonContainer.style.marginBottom = '10px';
+                        buttonContainer.style.justifyContent = 'center';
+                        buttonContainer.style.width = '100%';
 
                         const exportButton = createButton('Export', 'Export MangaDex++ Data', exportLocalStorage, '📤');
                         const importButton = createButton('Import', 'Import MangaDex++ Data', importLocalStorage, '📥');
 
                         buttonContainer.appendChild(exportButton);
                         buttonContainer.appendChild(importButton);
-                        targetDiv.appendChild(buttonContainer);
 
-                        console.log('MangaDex++: Export/Import buttons attached successfully!');
+                        // Insert the export/import buttons ABOVE the existing toggle controls
+                        controlsContainer.insertBefore(buttonContainer, controlsContainer.firstChild);
+
+                        console.log('MangaDex++: Export/Import buttons attached successfully above toggle controls!');
                     }
                 } catch (error) {
                     console.error('MangaDex++: Error in addExportImportButtons interval:', error);
                 }
             }, 200);
+
+            // Timeout after 10 seconds if element not found
+            setTimeout(() => {
+                clearInterval(checkForElement);
+                console.log('MangaDex++: Could not find controls container for Export/Import buttons');
+            }, 10000);
         } catch (error) {
             console.error('MangaDex++: Error in addExportImportButtons:', error);
         }
@@ -559,7 +577,12 @@ function getFormat(pathname) {
     function addControllers() {
         try {
             const ele = document.querySelector('.controls');
-            if (ele === null || ele.querySelector('input') !== null) {
+            if (ele === null) {
+                return;
+            }
+
+            // Check if toggle buttons already exist
+            if (ele.querySelector('#toggleQueue') !== null) {
                 return;
             }
 
