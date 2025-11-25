@@ -1,6 +1,10 @@
 // ==UserScript==
 // @name         MangaDex++ Combined
-// @namespace    https://github.com/lordmage/MangaDex-Combined
+// @author       Theo1996 @ MagaDexPP @Github With Ai tweaks ane merge from @lordmage
+// @source       https://github.com/lordmage/MangaDex-Combined
+// @namespace    http://github.com/lordmage/MangaDex-Combined
+// @updateURL    https://github.com/lordmage/MangaDex-Combined/blob/Base/MangaDex%2B%2B%20Combined.js
+// @downloadURL   https://github.com/lordmage/MangaDex-Combined/blob/Base/MangaDex%2B%2B%20Combined.js
 // @version      2.0
 // @description  Combined MangaDex++ QOL and LocalStorage Export/Import buttons - Clean Error Handling
 // @match        https://mangadex.org/*
