@@ -1,15 +1,11 @@
 // ==UserScript==
 // @name         MangaDex++ Combined
 // @namespace    https://github.com/MangaDexPP/userscript
-// @version      2.1
+// @version      2.2
 // @description  Combined MangaDex++ QOL and LocalStorage Export/Import buttons - Clean Error Handling
 // @match        https://mangadex.org/*
 // @match        http://mangadex.org/*
 // @icon         https://icons.duckduckgo.com/ip2/www.mangadex.org.ico
-// @author       Theo1996 @ MagaDexPP @Github With Ai tweaks and merge and other tweaks from @lordmage
-// @source       https://github.com/lordmage/MangaDex-Combined
-// @updateURL    https://github.com/lordmage/MangaDex-Combined/blob/Base/MangaDex%2B%2B%20Combined.js
-// @downloadURL   https://github.com/lordmage/MangaDex-Combined/blob/Base/MangaDex%2B%2B%20Combined.js
 // @grant        none
 // ==/UserScript==
 
@@ -113,7 +109,7 @@ function getFormat(pathname) {
 (function() {
     'use strict';
 
-    console.log('MangaDex++ Combined v2.1 initializing...');
+    console.log('MangaDex++ Combined v2.2 initializing...');
 
     // Clean error handler - only log MangaDex++ specific errors
     window.addEventListener('error', function(event) {
@@ -133,17 +129,17 @@ function getFormat(pathname) {
     window.addEventListener('unhandledrejection', function(event) {
         // Only log rejections that might be related to our script
         const reason = event.reason;
-        
+
         // Check if this is likely from our script by examining the stack
         const stack = reason?.stack || '';
-        if (stack.includes('MangaDex%252B%252B') || stack.includes('74360c41-7b13-45f1-8a6b-d94d4021a9a9')) {
+        if (stack.includes('MangaDex%252B%252B') || stack.includes('beb556ce-fe4d-45c1-b984-348ff6245401')) {
             console.error('MangaDex++ Unhandled Promise Rejection:', {
                 reason: reason,
                 promise: event.promise
             });
         }
         // Ignore external promise rejections (Google Tag Manager, MangaDex API 404s, etc.)
-        
+
         event.preventDefault();
     });
 
@@ -173,7 +169,7 @@ function getFormat(pathname) {
         button.style.cursor = 'pointer';
 
         const iconElement = document.createElement('span');
-        iconElement.innerHTML = icon;
+        iconElement.textContent = icon;
         button.appendChild(iconElement);
         button.appendChild(document.createTextNode(' ' + text));
 
@@ -261,8 +257,8 @@ function getFormat(pathname) {
 
                         buttonContainer.appendChild(exportButton);
                         buttonContainer.appendChild(importButton);
-
                         targetDiv.appendChild(buttonContainer);
+
                         console.log('MangaDex++: Export/Import buttons attached successfully!');
                     }
                 } catch (error) {
@@ -369,7 +365,7 @@ function getFormat(pathname) {
         try {
             const flag = window.localStorage.getItem(entryID);
             let shouldBeVisible = true;
-            
+
             if (flag === '-1') {
                 shouldBeVisible = !hideIgnore;
             } else if (flag === '1') {
@@ -377,12 +373,12 @@ function getFormat(pathname) {
             } else {
                 shouldBeVisible = !hideUnmarked;
             }
-            
+
             // Find the parent container to toggle visibility
-            const container = buttonElement.closest('.chapter-feed__container') || 
-                           buttonElement.closest('.manga-card') || 
+            const container = buttonElement.closest('.chapter-feed__container') ||
+                           buttonElement.closest('.manga-card') ||
                            buttonElement.closest('.layout-container > div:nth-child(6)');
-            
+
             if (container && container.getAttribute('hidden-override') === null) {
                 toggleVisibility(container, shouldBeVisible);
             }
@@ -403,11 +399,11 @@ function getFormat(pathname) {
             if (format === FORMAT_LIST) {
                 title = element.querySelector('.chapter-feed__title');
                 if (!title) return;
-                
+
                 const wrapper = document.createElement('div');
                 wrapper.innerHTML = title.outerHTML;
                 title.parentNode.replaceChild(wrapper, title);
-                
+
                 title = wrapper.querySelector('.chapter-feed__title');
                 title.style.setProperty('display', 'flex');
                 title.style.setProperty('justify-content', 'space-between');
@@ -419,112 +415,134 @@ function getFormat(pathname) {
             const alignment = format === FORMAT_DETAIL ? 'left' : 'right';
             const padding = format === FORMAT_DETAIL ? '10px 0px 0px 0px' : '0px 10px 0px 10px';
 
-            const html = `
-            <div style="height: 100%; float:${alignment}" class="inline-block">
-                <div style="padding: ${padding}; display: flex; justify-content: space-between;">
-                    <input class="databtn1" entryid="${entryID}" type="button" value="Read" style="
-                        background-color: transparent;
-                        padding: 0 1em;
-                        box-shadow: inset 0 0 3px 1px #ddd;
-                        border-radius: 4px;">
-                    <input class="databtn2" entryid="${entryID}" type="button" value="Ignore" style="
-                        background-color: transparent;
-                        padding: 0 1em;
-                        box-shadow: inset 0 0 3px 1px #ddd;
-                        border-radius: 4px;">
-                    <input class="databtn3" entryid="${entryID}" type="button" value="Clear" style="
-                        background-color: transparent;
-                        padding: 0 1em;
-                        box-shadow: inset 0 0 3px 1px #ddd;
-                        border-radius: 4px;">
-                </div>
-            </div>`;
+            // Create buttons container using DOM methods instead of innerHTML
+            const buttonsWrapper = document.createElement('div');
+            buttonsWrapper.style.height = '100%';
+            buttonsWrapper.style.float = alignment;
+            buttonsWrapper.className = 'inline-block';
+
+            const buttonsContainer = document.createElement('div');
+            buttonsContainer.style.padding = padding;
+            buttonsContainer.style.display = 'flex';
+            buttonsContainer.style.justifyContent = 'space-between';
+
+            // Create Read button
+            const readButton = document.createElement('input');
+            readButton.className = 'databtn1';
+            readButton.setAttribute('entryid', entryID);
+            readButton.type = 'button';
+            readButton.value = 'Read';
+            readButton.style.backgroundColor = 'transparent';
+            readButton.style.padding = '0 1em';
+            readButton.style.boxShadow = 'inset 0 0 3px 1px #ddd';
+            readButton.style.borderRadius = '4px';
+
+            // Create Ignore button
+            const ignoreButton = document.createElement('input');
+            ignoreButton.className = 'databtn2';
+            ignoreButton.setAttribute('entryid', entryID);
+            ignoreButton.type = 'button';
+            ignoreButton.value = 'Ignore';
+            ignoreButton.style.backgroundColor = 'transparent';
+            ignoreButton.style.padding = '0 1em';
+            ignoreButton.style.boxShadow = 'inset 0 0 3px 1px #ddd';
+            ignoreButton.style.borderRadius = '4px';
+
+            // Create Clear button
+            const clearButton = document.createElement('input');
+            clearButton.className = 'databtn3';
+            clearButton.setAttribute('entryid', entryID);
+            clearButton.type = 'button';
+            clearButton.value = 'Clear';
+            clearButton.style.backgroundColor = 'transparent';
+            clearButton.style.padding = '0 1em';
+            clearButton.style.boxShadow = 'inset 0 0 3px 1px #ddd';
+            clearButton.style.borderRadius = '4px';
+
+            // Add buttons to container
+            buttonsContainer.appendChild(readButton);
+            buttonsContainer.appendChild(ignoreButton);
+            buttonsContainer.appendChild(clearButton);
+            buttonsWrapper.appendChild(buttonsContainer);
 
             if (format === FORMAT_LIST) {
                 const url = title.href;
                 if (!url) return;
-                
+
                 const link = document.createElement('a');
                 link.href = url;
                 link.innerHTML = title.innerHTML;
-                
+
                 // Prevent the title link from opening in current tab
                 link.addEventListener('click', function(event) {
                     event.preventDefault();
                     window.open(url, '_blank');
                 });
-                
+
                 title.innerHTML = '';
                 title.appendChild(link);
-                
-                const buttonsContainer = document.createElement('div');
-                buttonsContainer.innerHTML = html;
-                title.appendChild(buttonsContainer);
-                
+                title.appendChild(buttonsWrapper);
+
                 // Add preventDefault to all button handlers
-                title.querySelector('.databtn1').addEventListener('click', function(event) {
+                readButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     queueEntry(event);
                 });
-                title.querySelector('.databtn2').addEventListener('click', function(event) {
+                ignoreButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     ignoreEntry(event);
                 });
-                title.querySelector('.databtn3').addEventListener('click', function(event) {
+                clearButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     clearEntry(event);
                 });
-                
+
                 link.style.setProperty('overflow', 'hidden');
                 link.style.setProperty('white-space', 'nowrap');
                 link.style.setProperty('text-overflow', 'ellipsis');
                 link.style.setProperty('cursor', 'pointer');
-                
+
             } else if (format === FORMAT_THUMBNAIL) {
                 const status = title.parentNode.querySelector('.status');
                 if (!status) return;
-                
-                const buttonsContainer = document.createElement('div');
-                buttonsContainer.innerHTML = html;
-                status.appendChild(buttonsContainer);
-                
+
+                status.appendChild(buttonsWrapper);
+
                 // Add preventDefault to all button handlers
-                status.querySelector('.databtn1').addEventListener('click', function(event) {
+                readButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     queueEntry(event);
                 });
-                status.querySelector('.databtn2').addEventListener('click', function(event) {
+                ignoreButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     ignoreEntry(event);
                 });
-                status.querySelector('.databtn3').addEventListener('click', function(event) {
+                clearButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     clearEntry(event);
                 });
-                
+
             } else if (format === FORMAT_DETAIL) {
-                const inner = document.createElement('div');
-                inner.innerHTML = html;
-                element.appendChild(inner);
-                
+                element.appendChild(buttonsWrapper);
+
                 // Add preventDefault to all button handlers
-                element.querySelector('.databtn1').addEventListener('click', function(event) {
+                readButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     queueEntry(event);
                 });
-                element.querySelector('.databtn2').addEventListener('click', function(event) {
+                ignoreButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     ignoreEntry(event);
                 });
-                element.querySelector('.databtn3').addEventListener('click', function(event) {
+                clearButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     event.stopPropagation();
                     clearEntry(event);
@@ -544,7 +562,7 @@ function getFormat(pathname) {
             if (ele === null || ele.querySelector('input') !== null) {
                 return;
             }
-            
+
             const button1 = document.createElement('input');
             button1.setAttribute('id', 'toggleQueue');
             button1.setAttribute('type', 'button');
@@ -553,7 +571,7 @@ function getFormat(pathname) {
             button1.style.setProperty('padding', '0 1em');
             button1.style.setProperty('box-shadow', 'inset 0 0 3px 1px #ddd');
             button1.style.setProperty('border-radius', '4px');
-            
+
             const button2 = document.createElement('input');
             button2.setAttribute('id', 'toggleIgnore');
             button2.setAttribute('type', 'button');
@@ -562,7 +580,7 @@ function getFormat(pathname) {
             button2.style.setProperty('padding', '0 1em');
             button2.style.setProperty('box-shadow', 'inset 0 0 3px 1px #ddd');
             button2.style.setProperty('border-radius', '4px');
-            
+
             const button3 = document.createElement('input');
             button3.setAttribute('id', 'toggleUnmarked');
             button3.setAttribute('type', 'button');
@@ -571,7 +589,7 @@ function getFormat(pathname) {
             button3.style.setProperty('padding', '0 1em');
             button3.style.setProperty('box-shadow', 'inset 0 0 3px 1px #ddd');
             button3.style.setProperty('border-radius', '4px');
-            
+
             const button4 = document.createElement('input');
             button4.setAttribute('id', 'toggleHideAllRead');
             button4.setAttribute('type', 'button');
@@ -586,19 +604,19 @@ function getFormat(pathname) {
                 console.log('MangaDex++: Toggled read flag hidden to ' + hideRead);
                 button1.style.setProperty('background-color', hideRead ? READ_BUTTON_COLOR : 'transparent');
             };
-            
+
             button2.onclick = function() {
                 hideIgnore = !hideIgnore;
                 console.log('MangaDex++: Toggled ignore flag hidden to ' + hideIgnore);
                 button2.style.setProperty('background-color', hideIgnore ? IGNORE_BUTTON_COLOR : 'transparent');
             };
-            
+
             button3.onclick = function() {
                 hideUnmarked = !hideUnmarked;
                 console.log('MangaDex++: Toggled unmarked flag hidden to ' + hideUnmarked);
                 button3.style.setProperty('background-color', hideUnmarked ? UNMARKED_BUTTON_COLOR : 'transparent');
             };
-            
+
             button4.onclick = function() {
                 hideAllRead = !hideAllRead;
                 console.log('MangaDex++: Toggled hide all read to ' + hideAllRead);
@@ -650,16 +668,16 @@ function getFormat(pathname) {
                 if (entry.querySelector('input') === null) {
                     const titleElement = entry.querySelector('.chapter-feed__title');
                     if (!titleElement) continue;
-                    
+
                     const url = titleElement.href;
                     if (!url) continue;
-                    
+
                     const parts = url.split('/');
                     if (parts.length < 2) continue;
-                    
+
                     const entryID = parts[parts.length - 2];
                     if (!entryID) continue;
-                    
+
                     addButtonsForElement(entryID, entry, FORMAT_LIST);
                 }
             }
@@ -678,23 +696,23 @@ function getFormat(pathname) {
                 if (entry.querySelector('input') === null) {
                     const titleElement = entry.querySelector('.title');
                     if (!titleElement) continue;
-                    
+
                     const url = titleElement.href;
                     if (!url) continue;
-                    
+
                     // Update the title link to open in new tab
                     titleElement.addEventListener('click', function(event) {
                         event.preventDefault();
                         window.open(url, '_blank');
                     });
                     titleElement.style.cursor = 'pointer';
-                    
+
                     const parts = url.split('/');
                     if (parts.length < 2) continue;
-                    
+
                     const entryID = parts[parts.length - 2];
                     if (!entryID) continue;
-                    
+
                     addButtonsForElement(entryID, entry, FORMAT_THUMBNAIL);
                 }
             }
@@ -712,7 +730,7 @@ function getFormat(pathname) {
             if (entry === null) {
                 return;
             }
-            
+
             let entryID;
             try {
                 const parts = window.location.href.split('/');
@@ -723,11 +741,11 @@ function getFormat(pathname) {
                 console.error('MangaDex++: Error parsing URL for entryID:', te);
                 return;
             }
-            
+
             if (entry.querySelector('.databtn1') !== null) {
                 return;
             }
-            
+
             addButtonsForElement(entryID, entry, FORMAT_DETAIL);
         } catch (error) {
             console.error('MangaDex++: Error in addButtonsForDetailFormat:', error);
@@ -744,7 +762,7 @@ function getFormat(pathname) {
             if (format === FORMAT_NOT_FOUND) {
                 return;
             }
-            
+
             let selector = '.layout-container > div:nth-child(6)';
             switch (format) {
                 case FORMAT_LIST:
@@ -756,16 +774,16 @@ function getFormat(pathname) {
                 default:
                     break;
             }
-            
+
             const entries = document.querySelectorAll(selector);
             for (const entry of entries) {
                 const button1 = entry.querySelector('.databtn1');
                 const button2 = entry.querySelector('.databtn2');
-                
+
                 if (button1 !== null && button2 !== null) {
                     const entryID = button1.getAttribute('entryid');
                     let displayElement = null;
-                    
+
                     switch (format) {
                         case FORMAT_LIST:
                             displayElement = entry;
@@ -781,15 +799,21 @@ function getFormat(pathname) {
                     if (flag === '-1') {
                         button1.style.setProperty('background-color', 'transparent');
                         button2.style.setProperty('background-color', IGNORE_BUTTON_COLOR);
-                        toggleVisibility(displayElement, !hideIgnore);
+                        if (displayElement) {
+                            toggleVisibility(displayElement, !hideIgnore);
+                        }
                     } else if (flag === '1') {
                         button1.style.setProperty('background-color', READ_BUTTON_COLOR);
                         button2.style.setProperty('background-color', 'transparent');
-                        toggleVisibility(displayElement, !hideRead);
+                        if (displayElement) {
+                            toggleVisibility(displayElement, !hideRead);
+                        }
                     } else {
                         button1.style.setProperty('background-color', 'transparent');
                         button2.style.setProperty('background-color', 'transparent');
-                        toggleVisibility(displayElement, !hideUnmarked);
+                        if (displayElement) {
+                            toggleVisibility(displayElement, !hideUnmarked);
+                        }
                         if (isLatestPage && (flag === null || forceRecheckNewEntry) && !queue.includes(entryID)) {
                             queue.push(entryID);
                         }
@@ -830,17 +854,17 @@ function getFormat(pathname) {
             const entryID = event.currentTarget.getAttribute('entryid');
             console.log('MangaDex++: Queue ' + entryID);
             window.localStorage.setItem(entryID, '1');
-            
+
             // Update button appearance immediately
             event.currentTarget.style.setProperty('background-color', READ_BUTTON_COLOR);
             const ignoreBtn = event.currentTarget.parentNode.querySelector('.databtn2');
             if (ignoreBtn) {
                 ignoreBtn.style.setProperty('background-color', 'transparent');
             }
-            
+
             // Update visibility based on current settings
             updateEntryVisibility(entryID, event.currentTarget);
-            
+
         } catch (error) {
             console.error('MangaDex++: Error in queueEntry:', error);
         }
@@ -855,17 +879,17 @@ function getFormat(pathname) {
             const entryID = event.currentTarget.getAttribute('entryid');
             console.log('MangaDex++: Ignore ' + entryID);
             window.localStorage.setItem(entryID, '-1');
-            
+
             // Update button appearance immediately
             event.currentTarget.style.setProperty('background-color', IGNORE_BUTTON_COLOR);
             const readBtn = event.currentTarget.parentNode.querySelector('.databtn1');
             if (readBtn) {
                 readBtn.style.setProperty('background-color', 'transparent');
             }
-            
+
             // Update visibility based on current settings
             updateEntryVisibility(entryID, event.currentTarget);
-            
+
         } catch (error) {
             console.error('MangaDex++: Error in ignoreEntry:', error);
         }
@@ -880,7 +904,7 @@ function getFormat(pathname) {
             const entryID = event.currentTarget.getAttribute('entryid');
             console.log('MangaDex++: Clear ' + entryID);
             window.localStorage.removeItem(entryID);
-            
+
             // Update button appearance immediately
             event.currentTarget.style.setProperty('background-color', 'transparent');
             const readBtn = event.currentTarget.parentNode.querySelector('.databtn1');
@@ -891,10 +915,10 @@ function getFormat(pathname) {
             if (ignoreBtn) {
                 ignoreBtn.style.setProperty('background-color', 'transparent');
             }
-            
+
             // Update visibility based on current settings
             updateEntryVisibility(entryID, event.currentTarget);
-            
+
         } catch (error) {
             console.error('MangaDex++: Error in clearEntry:', error);
         }
@@ -925,12 +949,12 @@ function getFormat(pathname) {
         try {
             const xhr = new XMLHttpRequest();
             const url = `https://api.mangadex.org/manga/${entryID}?includes[]=author&includes[]=artist&includes[]=cover_art`;
-            
+
             xhr.open('GET', url, true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.setRequestHeader('Accept', 'application/json');
             xhr.timeout = 10000;
-            
+
             xhr.onload = function () {
                 try {
                     if (xhr.status >= 200 && xhr.status < 300) {
@@ -951,17 +975,17 @@ function getFormat(pathname) {
                     console.error('MangaDex++: Error in checkPage onload:', error);
                 }
             };
-            
+
             xhr.onerror = function () {
                 console.error('MangaDex++: Network error fetching entry ' + entryID);
                 queue.unshift(entryID);
             };
-            
+
             xhr.ontimeout = function () {
                 console.error('MangaDex++: Timeout fetching entry ' + entryID);
                 queue.unshift(entryID);
             };
-            
+
             xhr.send();
         } catch (error) {
             console.error('MangaDex++: Error in checkPage:', error);
@@ -979,25 +1003,25 @@ function getFormat(pathname) {
                 console.error('MangaDex++: API error for entry ' + entryID + ': ' + (metadata.message || 'Unknown error'));
                 return;
             }
-            
+
             if (!metadata.data || !metadata.data.attributes) {
                 console.error('MangaDex++: Invalid API response for entry ' + entryID);
                 return;
             }
-            
+
             const attributes = metadata.data.attributes;
-            
+
             if (attributes.contentRating && attributes.contentRating === 'pornographic') {
                 console.log('MangaDex++: Ignore ' + entryID + ' due to pornographic content rating');
                 window.localStorage.setItem(entryID, '-1');
                 return;
             }
-            
+
             const tags = attributes.tags || [];
             for (let i = 0; i < tags.length; i++) {
                 const tagAttributes = tags[i].attributes;
                 if (!tagAttributes || !tagAttributes.name) continue;
-                
+
                 const tagName = (tagAttributes.name.en || tagAttributes.name.original || '').toLowerCase();
                 if (TAG_LIST.includes(tagName)) {
                     console.log('MangaDex++: Ignore ' + entryID + ' due to blacklisted tag: ' + tagName);
@@ -1005,15 +1029,15 @@ function getFormat(pathname) {
                     return;
                 }
             }
-            
+
             if (attributes.status && attributes.status === 'cancelled') {
                 console.log('MangaDex++: Ignore ' + entryID + ' due to cancelled status');
                 window.localStorage.setItem(entryID, '-1');
                 return;
             }
-            
+
             window.localStorage.setItem(entryID, '-2');
-            
+
         } catch (error) {
             console.error('MangaDex++: Error in parseAndHandleEntry:', error);
         }
@@ -1048,8 +1072,8 @@ function getFormat(pathname) {
             for (const row of chapterRows) {
                 const uploader = row.querySelector('.user-tag > .line-clamp-1');
                 const groupTag = row.querySelector('.group-tag');
-                
-                if ((uploader && USER_LIST.includes(uploader.innerText)) || 
+
+                if ((uploader && USER_LIST.includes(uploader.innerText)) ||
                     (groupTag && GROUP_LIST.includes(groupTag.innerText))) {
                     const parent = row.parentNode;
                     if (parent && parent.parentNode) {
@@ -1063,7 +1087,7 @@ function getFormat(pathname) {
     }
 
     // Start queue handler for API requests
-    console.log('MangaDex++ Combined v2.1 initialized successfully');
+    console.log('MangaDex++ Combined v2.2 initialized successfully');
     handle_queue();
 
 })();
