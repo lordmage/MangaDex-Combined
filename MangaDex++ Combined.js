@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         MangaDex++ Combined (Patched)
+// @name         MangaDex++ Combined
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
 // @version      2.5.4
