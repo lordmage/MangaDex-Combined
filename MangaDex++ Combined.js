@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         MangaDex++ Combined
+// @name         MangaDex++ Combined (Patched)
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
-// @version      2.5.1
-// @description  Fixed: Settings dropdown matches MangaDex dark theme with readable text
+// @version      2.5.4
+// @description  Fixed: Complete null safety in button placement with multiple fallbacks
 // @author       @ Theo1996, MangaDexPP, patched by Workik
 // @homepageURL  https://github.com/lordmage/MangaDex-Combined
 // @updateURL    https://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
@@ -21,7 +21,7 @@
     'use strict';
 
     // ---------- CONFIGURABLE ----------
-    const POLLING_TIME = 400; // increased to reduce CPU usage
+    const POLLING_TIME = 400;
     const API_REQUEST_INTERVAL = 1000;
 
     // Tracker colors
@@ -36,7 +36,7 @@
     // block lists (all lowercase intended where appropriate)
     const USER_LIST = [];
     const GROUP_LIST = [];
-    const TAG_LIST = ["boys' love"]; // IMPORTANT: Use all lowercase
+    const TAG_LIST = ["boys' love"];
 
     // ---------- INTERNAL STATE ----------
     let hideRead = false;
@@ -80,7 +80,7 @@
         }
     }
 
-    // Clean error handler - only log MangaDex++ specific errors
+    // Clean error handler
     window.addEventListener('error', function(event) {
         if (event.filename && event.filename.includes('MangaDex%252B%252B')) {
             console.error('MangaDex++ Script Error:', {
@@ -154,13 +154,12 @@
         }
     }
 
-    // ---------- Settings Cog with Dropdown (Improved Styling) ----------
+    // ---------- Settings Cog with Dropdown ----------
     function createSettingsCog() {
         try {
-            // Create the main settings cog button
             const settingsButton = document.createElement('input');
             settingsButton.type = 'button';
-            settingsButton.value = '⚙'; // Cog icon
+            settingsButton.value = '⚙';
             settingsButton.title = 'MangaDex++ Settings';
             settingsButton.style.backgroundColor = SETTINGS_BUTTON_COLOR;
             settingsButton.style.padding = '0 1em';
@@ -170,23 +169,21 @@
             settingsButton.style.cursor = 'pointer';
             settingsButton.style.fontSize = '14px';
             settingsButton.style.fontWeight = 'bold';
-            settingsButton.style.color = '#ffffff'; // Ensure text is white
+            settingsButton.style.color = '#ffffff';
 
-            // Create dropdown container - MATCH MANGA DEX DARK THEME
             const dropdown = document.createElement('div');
             dropdown.style.display = 'none';
             dropdown.style.position = 'absolute';
-            dropdown.style.backgroundColor = '#1a1a1a'; // Dark background matching MangaDex
-            dropdown.style.border = '1px solid #333'; // Darker border
+            dropdown.style.backgroundColor = '#1a1a1a';
+            dropdown.style.border = '1px solid #333';
             dropdown.style.borderRadius = '6px';
-            dropdown.style.padding = '8px 0'; // Remove side padding for full-width buttons
+            dropdown.style.padding = '8px 0';
             dropdown.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
             dropdown.style.zIndex = '10000';
             dropdown.style.minWidth = '180px';
             dropdown.style.marginTop = '5px';
             dropdown.style.fontFamily = 'inherit';
 
-            // Create export button for dropdown
             const exportButton = document.createElement('button');
             exportButton.textContent = '📤 Export Data';
             exportButton.style.width = '100%';
@@ -198,12 +195,11 @@
             exportButton.style.cursor = 'pointer';
             exportButton.style.textAlign = 'left';
             exportButton.style.fontSize = '13px';
-            exportButton.style.color = '#e0e0e0'; // Light text for readability
+            exportButton.style.color = '#e0e0e0';
             exportButton.style.fontFamily = 'inherit';
             exportButton.style.transition = 'background-color 0.2s ease';
             exportButton.title = 'Export your MangaDex++ data';
 
-            // Create import button for dropdown
             const importButton = document.createElement('button');
             importButton.textContent = '📥 Import Data';
             importButton.style.width = '100%';
@@ -215,12 +211,11 @@
             importButton.style.cursor = 'pointer';
             importButton.style.textAlign = 'left';
             importButton.style.fontSize = '13px';
-            importButton.style.color = '#e0e0e0'; // Light text for readability
+            importButton.style.color = '#e0e0e0';
             importButton.style.fontFamily = 'inherit';
             importButton.style.transition = 'background-color 0.2s ease';
             importButton.title = 'Import MangaDex++ data';
 
-            // Add hover effects for better UX
             exportButton.addEventListener('mouseenter', function() {
                 this.style.backgroundColor = '#2a2a2a';
             });
@@ -235,7 +230,6 @@
                 this.style.backgroundColor = 'transparent';
             });
 
-            // Add event listeners
             exportButton.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -250,33 +244,28 @@
                 dropdown.style.display = 'none';
             });
 
-            // Add buttons to dropdown
             dropdown.appendChild(exportButton);
-            
-            // Add separator
+
             const separator = document.createElement('div');
             separator.style.height = '1px';
             separator.style.backgroundColor = '#333';
             separator.style.margin = '4px 0';
             dropdown.appendChild(separator);
-            
+
             dropdown.appendChild(importButton);
 
-            // Create wrapper for positioning
             const settingsWrapper = document.createElement('div');
             settingsWrapper.style.position = 'relative';
             settingsWrapper.style.display = 'inline-block';
             settingsWrapper.appendChild(settingsButton);
             settingsWrapper.appendChild(dropdown);
 
-            // Toggle dropdown on cog click
             settingsButton.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 const isVisible = dropdown.style.display === 'block';
                 dropdown.style.display = isVisible ? 'none' : 'block';
-                
-                // Position dropdown to avoid going off-screen
+
                 const rect = settingsWrapper.getBoundingClientRect();
                 if (rect.right + 180 > window.innerWidth) {
                     dropdown.style.right = '0';
@@ -287,14 +276,12 @@
                 }
             });
 
-            // Close dropdown when clicking outside
             document.addEventListener('click', function(e) {
                 if (!settingsWrapper.contains(e.target)) {
                     dropdown.style.display = 'none';
                 }
             });
 
-            // Close dropdown on escape key
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape' && dropdown.style.display === 'block') {
                     dropdown.style.display = 'none';
@@ -354,7 +341,6 @@
                     let allRead = true;
                     const chapters = entry.querySelectorAll('.chapter .readMarker, .chapter .feather-eye, .chapter .chapter-read');
                     for (let j = 0; j < chapters.length; j++) {
-                        // assume presence of 'feather-eye' indicates unread in original script; invert safely if markers differ
                         if (chapters[j].classList.contains('feather-eye')) {
                             allRead = false;
                             break;
@@ -394,18 +380,14 @@
     function safeGetEntryIdFromLink(url) {
         if (!url) return null;
         try {
-            // url structure: https://mangadex.org/title/<id>/...
             const parsed = new URL(url, window.location.origin);
             const parts = parsed.pathname.split('/').filter(Boolean);
-            // look for 'title' then next segment
             const idx = parts.indexOf('title');
             if (idx >= 0 && parts.length > idx + 1) return parts[idx + 1];
-            // fallback: last numeric-like segment
             for (let i = parts.length - 1; i >= 0; i--) {
                 if (parts[i].length >= 6) return parts[i];
             }
         } catch (e) {
-            // fallback split
             const parts = url.split('/').filter(Boolean);
             const titleIndex = parts.indexOf('title');
             if (titleIndex >= 0 && parts.length > titleIndex + 1) return parts[titleIndex + 1];
@@ -413,23 +395,20 @@
         return null;
     }
 
+    // COMPLETELY REWRITTEN: addButtonsForElement with comprehensive null safety
     function addButtonsForElement(entryID, element, format) {
         try {
-            if (!entryID || !element) return;
-
-            // find a place to append controls without replacing content
-            let title;
-            if (format === FORMAT_LIST) {
-                title = element.querySelector('.chapter-feed__title, h3 a, .title a');
-                if (!title) return;
-            } else if (format === FORMAT_THUMBNAIL) {
-                title = element.querySelector('.title, a.title');
-                if (!title) return;
-            } else if (format === FORMAT_DETAIL) {
-                title = element.querySelector('h1, .layout-container > div:nth-child(6) h1');
+            // Validate all inputs thoroughly
+            if (!entryID || !element || !element.nodeType) {
+                console.warn('MangaDex++: Invalid parameters for addButtonsForElement', {
+                    entryID,
+                    element: element ? element.constructor.name : 'null',
+                    format
+                });
+                return;
             }
 
-            // create buttons container
+            // Create buttons wrapper and buttons first
             const buttonsWrapper = document.createElement('div');
             buttonsWrapper.className = 'mangadex-tracker-buttons';
             buttonsWrapper.style.display = 'inline-flex';
@@ -465,20 +444,7 @@
             buttonsWrapper.appendChild(ignoreButton);
             buttonsWrapper.appendChild(clearButton);
 
-            // append buttons next to title (without destructive replacements)
-            // prefer an inline container
-            try {
-                if (title.parentNode) {
-                    // try to insert after the title
-                    title.parentNode.insertBefore(buttonsWrapper, title.nextSibling);
-                } else {
-                    title.appendChild(buttonsWrapper);
-                }
-            } catch (_) {
-                title.appendChild(buttonsWrapper);
-            }
-
-            // wire handlers
+            // Wire handlers
             readButton.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -494,6 +460,135 @@
                 event.stopPropagation();
                 clearEntry(event);
             });
+
+            // NEW: Multiple insertion strategies with comprehensive validation
+            const insertionStrategies = [
+                // Strategy 1: Find title and insert next to it
+                () => {
+                    let title = null;
+                    if (format === FORMAT_LIST) {
+                        title = element.querySelector('.chapter-feed__title, h3 a, .title a');
+                    } else if (format === FORMAT_THUMBNAIL) {
+                        title = element.querySelector('.title, a.title');
+                    } else if (format === FORMAT_DETAIL) {
+                        title = element.querySelector('h1, h2, .title-header, .manga-title, [class*="title"]');
+                    }
+
+                    if (title && title.parentNode && title.parentNode.nodeType === 1) {
+                        try {
+                            title.parentNode.insertBefore(buttonsWrapper, title.nextSibling);
+                            return true;
+                        } catch (e) {
+                            console.debug('MangaDex++: Strategy 1 failed (insert next to title)', e);
+                        }
+                    }
+                    return false;
+                },
+
+                // Strategy 2: Append to title directly
+                () => {
+                    let title = null;
+                    if (format === FORMAT_LIST) {
+                        title = element.querySelector('.chapter-feed__title, h3 a, .title a');
+                    } else if (format === FORMAT_THUMBNAIL) {
+                        title = element.querySelector('.title, a.title');
+                    } else if (format === FORMAT_DETAIL) {
+                        title = element.querySelector('h1, h2, .title-header, .manga-title, [class*="title"]');
+                    }
+
+                    if (title && title.nodeType === 1) {
+                        try {
+                            title.appendChild(buttonsWrapper);
+                            return true;
+                        } catch (e) {
+                            console.debug('MangaDex++: Strategy 2 failed (append to title)', e);
+                        }
+                    }
+                    return false;
+                },
+
+                // Strategy 3: Insert at beginning of element
+                () => {
+                    if (element && element.nodeType === 1) {
+                        try {
+                            element.insertBefore(buttonsWrapper, element.firstChild);
+                            return true;
+                        } catch (e) {
+                            console.debug('MangaDex++: Strategy 3 failed (insert at beginning)', e);
+                        }
+                    }
+                    return false;
+                },
+
+                // Strategy 4: Append to element
+                () => {
+                    if (element && element.nodeType === 1) {
+                        try {
+                            element.appendChild(buttonsWrapper);
+                            return true;
+                        } catch (e) {
+                            console.debug('MangaDex++: Strategy 4 failed (append to element)', e);
+                        }
+                    }
+                    return false;
+                },
+
+                // Strategy 5: Find any reasonable container in the element
+                () => {
+                    const containers = element.querySelectorAll('div, section, header, .flex, .mb-4, .mt-4');
+                    for (const container of containers) {
+                        if (container && container.nodeType === 1) {
+                            try {
+                                container.appendChild(buttonsWrapper);
+                                return true;
+                            } catch (e) {
+                                // Continue to next container
+                            }
+                        }
+                    }
+                    return false;
+                },
+
+                // Strategy 6: Last resort - insert before the element
+                () => {
+                    if (element && element.parentNode && element.parentNode.nodeType === 1) {
+                        try {
+                            element.parentNode.insertBefore(buttonsWrapper, element);
+                            return true;
+                        } catch (e) {
+                            console.debug('MangaDex++: Strategy 6 failed (insert before element)', e);
+                        }
+                    }
+                    return false;
+                },
+
+                // Strategy 7: Absolute last resort - append to body with warning
+                () => {
+                    try {
+                        document.body.appendChild(buttonsWrapper);
+                        console.warn('MangaDex++: Buttons appended to body as last resort');
+                        return true;
+                    } catch (e) {
+                        console.debug('MangaDex++: Strategy 7 failed (append to body)', e);
+                    }
+                    return false;
+                }
+            ];
+
+            // Try all strategies until one works
+            let success = false;
+            for (let i = 0; i < insertionStrategies.length; i++) {
+                if (insertionStrategies[i]()) {
+                    success = true;
+                    console.debug(`MangaDex++: Buttons placed successfully using strategy ${i + 1}`);
+                    break;
+                }
+            }
+
+            if (!success) {
+                console.error('MangaDex++: All insertion strategies failed for element:', element);
+            }
+
         } catch (error) {
             console.error('MangaDex++: Error in addButtonsForElement:', error);
         }
@@ -515,7 +610,7 @@
                 btn.style.padding = '0 1em';
                 btn.style.boxShadow = 'inset 0 0 3px 1px #ddd';
                 btn.style.borderRadius = '4px';
-                btn.style.color = '#ffffff'; // Ensure text is white
+                btn.style.color = '#ffffff';
                 btn.addEventListener('click', onclick);
                 return btn;
             };
@@ -547,12 +642,10 @@
             ele.appendChild(button1);
             ele.appendChild(button2);
             ele.appendChild(button3);
-            
-            // Add Hide All Read button and Settings Cog together
+
             if (DOES_HIDE_ALL_READ) {
                 ele.appendChild(button4);
-                
-                // Add settings cog next to Hide All Read
+
                 const settingsCog = createSettingsCog();
                 if (settingsCog) {
                     ele.appendChild(settingsCog);
@@ -586,12 +679,9 @@
 
     function addButtonsForListFormat() {
         try {
-            // try multiple plausible selectors
             const entries = document.querySelectorAll('.chapter-feed__container, .chapter-list-item, article, .chapter-feed > div');
             for (const entry of entries) {
-                // skip if already has our buttons
                 if (entry.querySelector('.mangadex-tracker-buttons')) continue;
-                // try several possible title selectors
                 const titleElement = entry.querySelector('.chapter-feed__title, h3 a, .title a');
                 if (!titleElement) continue;
                 const url = titleElement.href || titleElement.getAttribute('data-href') || (titleElement.parentNode && titleElement.parentNode.href);
@@ -614,7 +704,6 @@
                 const url = titleElement.href || titleElement.getAttribute('data-href') || (titleElement.parentNode && titleElement.parentNode.href);
                 const entryID = safeGetEntryIdFromLink(url);
                 if (!entryID) continue;
-                // make title open in new tab without replacing DOM
                 try {
                     titleElement.addEventListener('click', function(ev) {
                         if (this.href) {
@@ -631,14 +720,60 @@
         }
     }
 
+    // IMPROVED: Better container finding for detail pages
     function addButtonsForDetailFormat() {
         try {
-            const entry = document.querySelector('.layout-container > div:nth-child(6), .detail-container, .title-detail');
-            if (!entry) return;
-            // try to get ID from the URL path reliably
-            const entryID = safeGetEntryIdFromLink(window.location.href);
-            if (!entryID) return;
-            if (entry.querySelector('.mangadex-tracker-buttons')) return;
+            // Multiple selector attempts with better fallbacks
+            const possibleSelectors = [
+                '.layout-container > div:nth-child(6)',
+                '.manga-detail',
+                '.title-detail',
+                '[class*="detail"]',
+                '.flex.gap-3',
+                '.mb-4',
+                'main > div:first-child',
+                '.container',
+                '.mx-auto',
+                'div[class*="manga"]',
+                'section'
+            ];
+
+            let entry = null;
+            for (const selector of possibleSelectors) {
+                const elements = document.querySelectorAll(selector);
+                for (const el of elements) {
+                    if (el && el.nodeType === 1 && el.offsetParent !== null) {
+                        entry = el;
+                        console.debug(`MangaDex++: Found detail container with selector: ${selector}`);
+                        break;
+                    }
+                }
+                if (entry) break;
+            }
+
+            if (!entry) {
+                console.debug('MangaDex++: No suitable detail container found');
+                return;
+            }
+
+            // Multiple methods to get entry ID
+            let entryID = safeGetEntryIdFromLink(window.location.href);
+            if (!entryID) {
+                const metaElement = document.querySelector('meta[property="og:url"], meta[name="twitter:url"]');
+                if (metaElement) {
+                    entryID = safeGetEntryIdFromLink(metaElement.getAttribute('content'));
+                }
+            }
+
+            if (!entryID) {
+                console.debug('MangaDex++: Could not extract entry ID from detail page');
+                return;
+            }
+
+            if (entry.querySelector('.mangadex-tracker-buttons')) {
+                return;
+            }
+
             addButtonsForElement(entryID, entry, FORMAT_DETAIL);
         } catch (error) {
             console.error('MangaDex++: Error in addButtonsForDetailFormat:', error);
@@ -659,7 +794,6 @@
                 const button1 = entry.querySelector('.databtn1');
                 const button2 = entry.querySelector('.databtn2');
 
-                // if our buttons are not present, skip (they will be added by addButtons)
                 if (button1 !== null && button2 !== null) {
                     const entryID = button1.getAttribute('entryid');
                     let displayElement = entry;
@@ -739,7 +873,6 @@
             if (!entryID) return;
             console.log('MangaDex++: Clear', entryID);
             window.localStorage.removeItem(entryID);
-            // reset styles of nearby buttons if present
             const parent = event.currentTarget.parentNode;
             if (parent) {
                 const readBtn = parent.querySelector('.databtn1');
@@ -761,7 +894,6 @@
                 try {
                     await checkPage(entryID);
                 } catch (err) {
-                    // requeue with backoff if network glitch
                     console.debug('MangaDex++: Error while checking, requeueing', entryID);
                     if (!queue.includes(entryID)) queue.push(entryID);
                 }
@@ -773,7 +905,6 @@
         }
     }
 
-    // Use fetch; handle common HTTP cases (404 = removed -> ignore)
     async function checkPage(entryID) {
         try {
             const url = `https://api.mangadex.org/manga/${entryID}?includes[]=author&includes[]=artist&includes[]=cover_art`;
@@ -789,7 +920,6 @@
             clearTimeout(timeout);
 
             if (resp.status === 404) {
-                // manga removed -> mark ignored to stop retrying
                 window.localStorage.setItem(entryID, '-1');
                 console.warn('MangaDex++: Entry not found (404), auto-ignored', entryID);
                 return;
@@ -797,7 +927,6 @@
 
             if (!resp.ok) {
                 console.error('MangaDex++: Failed to fetch entry', entryID, 'status', resp.status);
-                // requeue non-client-error responses
                 if (resp.status >= 500 || resp.status === 429) {
                     if (!queue.includes(entryID)) queue.push(entryID);
                 }
@@ -820,7 +949,6 @@
     function parseAndHandleEntry(entryID, metadata) {
         try {
             if (!metadata || metadata.result === 'error' || metadata.result === 'failed') {
-                // mark as ignored to avoid infinite loop on malformed API responses
                 console.error('MangaDex++: API error for entry', entryID, metadata?.message || metadata);
                 window.localStorage.setItem(entryID, '-1');
                 return;
@@ -844,7 +972,6 @@
             for (let i = 0; i < tags.length; i++) {
                 const tagAttributes = tags[i].attributes;
                 if (!tagAttributes) continue;
-                // prefer english name or original; lowercase for compare
                 const tagName = ((tagAttributes.name && (tagAttributes.name.en || tagAttributes.name.original)) || '').toString().toLowerCase();
                 if (TAG_LIST.includes(tagName)) {
                     window.localStorage.setItem(entryID, '-1');
@@ -859,7 +986,6 @@
                 return;
             }
 
-            // default marker for processed-but-not-ignored
             window.localStorage.setItem(entryID, '-2');
         } catch (error) {
             console.error('MangaDex++: Error in parseAndHandleEntry:', error);
