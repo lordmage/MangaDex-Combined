@@ -9,7 +9,7 @@ A comprehensive userscript that enhances your MangaDex experience with quality-o
 ![Version](https://img.shields.io/badge/version-2.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-MangaDex++ Enhanced v3.3.3
+MangaDex++ Combined V 2.5.6 
 
 A powerful, stable, and feature-rich userscript that upgrades MangaDex with quality-of-life improvements, filtering tools, metadata analysis, tag-based auto-ignoring, and robust UI enhancements.
 
