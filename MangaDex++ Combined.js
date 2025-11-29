@@ -430,12 +430,27 @@
         return;
       }
 
-      let hide = false;
-      if (flag === "1") hide = hideRead;
-      else if (flag === "-1") hide = hideIgnore;
-      else hide = hideUnmarked;
+     // If this container is not a manga-card container, never hide it by "unmarked".
+const isMangaContainer =
+  cont.classList.contains("chapter-feed__container") ||
+  cont.classList.contains("manga-card") ||
+  cont.closest(".chapter-feed__container") ||
+  cont.closest(".manga-card");
 
-      cont.style.display = hide ? "none" : "";
+// Apply per-flag hiding only to manga containers
+let hide = false;
+
+if (flag === "1") {
+    hide = hideRead;
+} else if (flag === "-1") {
+    hide = hideIgnore;
+} else {
+    // Only hide unmarked items IF they are real manga items
+    hide = hideUnmarked && !!isMangaContainer;
+}
+
+cont.style.display = hide ? "none" : "";
+
       syncButtonColors(row, flag);
     });
 
