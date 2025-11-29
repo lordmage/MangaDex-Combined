@@ -1,21 +1,17 @@
 // ==UserScript==
+// @name         MangaDex++ Enhanced v2.5.5 (Tag Blacklist, Stable Controls, Hide Read Fixed)
+// @version      2.5.5
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
+// @description  Read / Ignore / Clear buttons on every manga card, tag blacklist, export/import, feed unread detection, no duplicate control bars, stable filtering.
 // @author       @ Theo1996, MangaDexPP, patched by Workik
 // @homepageURL  https://github.com/lordmage/MangaDex-Combined
 // @updateURL    https://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
 // @downloadURL  https://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
 // @match        https://mangadex.org/*
-// @match        http://mangadex.org/*
 // @icon         https://icons.duckduckgo.com/ip2/www.mangadex.org.ico
-// @grant        none
-// ==/UserScript==
-
 /* global localStorage, URL, Blob, FileReader, fetch */
 /* eslint-disable no-unused-vars */
-// @name         MangaDex++ Enhanced v2.5.5 (Tag Blacklist, Stable Controls, Hide Read Fixed)
-// @version      2.5.5
-// @description  Read / Ignore / Clear buttons on every manga card, tag blacklist, export/import, feed unread detection, no duplicate control bars, stable filtering.
 // @match        https://mangadex.org/*
 // @grant        none
 // ==/UserScript==
