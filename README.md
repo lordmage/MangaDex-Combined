@@ -147,3 +147,19 @@ MangaDex++ Enhanced
     ├── runOnce()
     ├── scheduleRun()
     └── Mutation Observer
+📄 License
+This project is licensed under an open-source license. See the repository for details.
+
+🙏 Credits
+@Theo1996: Original MangaDexPP concept and implementation
+Lordmage: Current maintainer and enhancements
+Workik: Patches and fixes
+MangaDex Community: Testing and feedback
+🔗 Links
+GitHub Repository: lordmage/MangaDex-Combined
+Direct Install: MangaDex++ Enhanced
+MangaDex: https://mangadex.org
+⚠️ Disclaimer
+This is a third-party userscript and is not affiliated with or endorsed by MangaDex. Use at your own risk. The developers are not responsible for any issues caused by using this script. Always backup your data regularly.
+
+Happy Manga Reading! 📚
