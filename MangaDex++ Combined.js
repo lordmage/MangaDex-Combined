@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.5.6 (Stable Controls, Hide Read Fixed)
+// @name         MangaDex++ Enhanced v2.5.7 (Stable Controls, Hide Read Fixed)
 // @version      2.5.7
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
