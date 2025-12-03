@@ -9,148 +9,141 @@ A comprehensive userscript that enhances your MangaDex experience with quality-o
 ![Version](https://img.shields.io/badge/version-2.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-MangaDex++ Combined V 2.5.6 
+MangaDex++ Combined V 2.5.7 
 
-A powerful, stable, and feature-rich userscript that upgrades MangaDex with quality-of-life improvements, filtering tools, metadata analysis, tag-based auto-ignoring, and robust UI enhancements.
+A powerful userscript for MangaDex.org that adds Read/Ignore/Clear buttons to every manga card with robust filtering capabilities across all pages.
 
-This script is a heavily improved and expanded evolution of the original MangaDex++ userscript.
-Completely refactored for reliability, performance, and full site compatibility with:
+📋 Features
+Core Functionality
+Read/Ignore/Clear buttons on every manga card and chapter feed
+Four toggle controls:
+Toggle Read: Hide/Show marked "Read" manga
+Toggle Ignore: Hide/Show marked "Ignore" manga (default: hidden)
+Toggle Unmarked: Hide/Show unmarked manga
+Hide All Read?: Hide entire feed entries with no unread chapters
+Works on all MangaDex pages:
+/titles/feed - Latest chapter feed
+/titles/follows - Followed manga
+/titles - All titles
+/titles/recent - Recently updated
+/titles/latest - Latest updates
+/title/* - Individual manga pages
+And more!
+Data Management
+Export Data: Backup all your Read/Ignore marks to JSON
+Import Data: Restore from backup or migrate to another browser
+Local Storage: All data stored locally in your browser
+Smart Filtering
+Status-based filtering: Show/hide based on Read/Ignore/Unmarked status
+Feed optimization: "Hide All Read" detects chapters with no unread content
+Automatic updates: Works with MangaDex's dynamic content loading
+Duplicate control prevention: Only shows one set of controls
+🚀 Installation
+Requirements
+A userscript manager browser extension:
+Tampermonkey ( Chrome | Firefox )
+Violentmonkey ( Chrome | Firefox )
+Greasemonkey ( Firefox )
+Installation Methods
+Method 1: Direct Install (Recommended)
+Click this link: Install MangaDex++ Enhanced
+Your userscript manager should open and prompt for installation
+Click "Install" or "Confirm"
+Method 2: Manual Install
+Open your userscript manager
+Create a new script
+Copy the entire code from this repository
+Paste and save
+📖 Usage
+Basic Usage
+Navigate to any MangaDex page with manga listings
+Control buttons appear automatically on each manga card
+Click "Read" to mark a manga as read (green highlight)
+Click "Ignore" to mark a manga to ignore (red highlight)
+Click "Clear" to remove any marks
+Control Buttons
+The script adds control buttons at the top of MangaDex pages:
 
-Latest
-Recent
-Follows
-Feed
-Title detail pages
-Search results
-Dynamic lists
+| Button | Description | Default State | |--------|-------------|---------------| | Toggle Read | Hide/show marked "Read" manga | Visible | | Toggle Ignore | Hide/show marked "Ignore" manga | Hidden | | Toggle Unmarked | Hide/show unmarked manga | Visible | | Hide All Read? | Hide feed entries with no unread chapters | Hidden | | ⚙ | Settings menu | Always visible |
 
-⭐ Features
-✔ Per-title Read / Ignore / Clear Controls
-Adds three buttons under every manga card:
-Read → marks the manga as read
-Ignore → permanently hides it
-Clear → removes flags
-Flags are stored in localStorage and persist across page loads.
-✔ Top-bar Filtering Controls
-A custom control bar is added to the MangaDex header (no duplicates):
+Settings Menu (⚙)
+Click the gear icon to access:
 
-Button	Function
-Toggle Read	Hide all items marked as read
-Toggle Ignore	Hide all ignored manga
-Toggle Unmarked	Hide all manga not marked read/ignored
-Hide All Read?	Feed-specific “read chapter marker” detection
-⚙ Settings	Opens the full MangaDex++ settings menu
-✔ Tag Blacklist (with UI)
-Automatically hide ("Ignore") any manga whose tags match your blacklist.
-Fully editable list
-Add/remove tags
-Clear all
-Case-insensitive
-Survives reloads
-API-driven metadata fetch
+Export Data: Download all your marks as a JSON file
+Import Data: Upload a JSON file to restore your marks
+🔧 Configuration
+Color Coding
+The script uses semi-transparent colors to indicate status:
 
-This is perfect for removing entire genres from your feed — permanently.
+| Status | Color | Description | |--------|-------|-------------| | Read | #13ab493d (green) | Manga marked as read | | Ignore | #ab13133d (red) | Manga marked to ignore | | Unmarked | #4242cd3d (blue) | No status set | | Settings | #6b72803d (gray) | Settings button |
 
-✔ Robust Feed “Hide All Read”
-On feed pages (/titles/feed), the script detects chapter markers:
-“opacity-40” → read
-Normal marker → unread
-All manga with no unread chapters vanish when the toggle is active.
+Default States
+ copy
+javascript
 
-✔ Export / Import System
-Export or import:
-Read flags
-Ignore flags
-Tag blacklist
-Internal settings
-Great for backups or syncing to another device.
+let hideRead = false;      // Read manga are visible by default
+let hideIgnore = true;     // Ignored manga are hidden by default
+let hideUnmarked = false;  // Unmarked manga are visible by default
+let hideAllRead = true;    // Feed entries with all chapters read are hidden
+💾 Data Management
+Exporting Data
+Click the ⚙ settings button
+Click "Export Data"
+A JSON file (mangadexpp-localstorage.json) will download
+Store this file safely for backup
+Importing Data
+Click the ⚙ settings button
+Click "Import Data"
+Select your backup JSON file
+The page will reload with your marks restored
+Data Location
+All data is stored in your browser's localStorage under keys that match manga IDs:
 
-✔ Dynamic MutationObserver Support
-MangaDex is fully reactive — the script stays in sync with:
-Infinite scrolling
-Dynamic lists
-Live component updates
-Search filtering
-Everything is reattached automatically.
+"1" = Read status
+"-1" = Ignore status
+🎯 Page Support
+The script works on the following MangaDex page types:
 
-✔ Safe Click Handling
-Clicking a MangaDex++ button never opens the title page.
-All interactions use stopPropagation() and preventDefault()
-to avoid accidental navigation.
+| Page Type | URL Pattern | Supported | |-----------|-------------|-----------| | Chapter Feed | /titles/feed | ✅ Full support | | Follows | /titles/follows | ✅ Full support | | All Titles | /titles | ✅ Full support | | Recent Updates | /titles/recent | ✅ Full support | | Latest Updates | /titles/latest | ✅ Full support | | Search Results | /titles?search=... | ✅ Full support | | Manga Detail | /title/{uuid} | ✅ Full support | | Author Page | /author/{uuid} | ✅ Full support | | Group Page | /group/{uuid} | ✅ Full support | | Tag Page | /tag/{tag} | ✅ Full support |
 
-✔ High Performance Design
-Includes:
-API request batching
-Rate limiting
-Deferred DOM insertion
-Automatic detection of container types
-No redundant fetch loops
-Zero console errors
+🛠 Technical Details
+How It Works
+Mutation Observer: Watches for DOM changes and adds buttons to new content
+UUID Extraction: Parses manga IDs from URLs using regex
+Local Storage: Stores status marks locally in your browser
+CSS Injection: Adds styles for buttons and colors dynamically
+Filter System: Hides/shows manga based on status and toggle states
+Code Structure
+ copy
+javascript
 
-🛠 Installation
-Requires a userscript manager:
-Tampermonkey (recommended)
-Violentmonkey
-Greasemonkey
-
-Install via Raw Link
-https://raw.githubusercontent.com/MangaDex-Combined/raw/refs/heads/Base/MangaDex++%20Combined.js
-
-⚙ Settings Menu (Full Description)
-The settings menu is accessible from the ⚙ button in the top navigation bar.
-Data Tools
-Export Data → save settings/localStorage to JSON
-Import Data → load previously saved data
-Tag Blacklist
-
-A complete tag management UI:
-Add tags by name
-Remove individual tags
-Clear all tags
-List auto-scrolls
-Tags apply instantly
-Triggers metadata fetch for new cards
-🧠 How Tag Auto-Ignore Works
-Each visible manga ID is queued for metadata lookup:
-IDs are batched (max 100 per API request)
-Requests are rate-limited
-MangaDex API returns the tag list
-Any matching blacklist tag ⇒ marked ignored (value -1)
-You never see manga you don't want to see.
-
-📦 Changelog Summary
-Fixed tag blacklist menu collapsing on input click
-Improved event isolation in menu UI
-Hardened filter logic
-Corrected Hide-All-Read behavior in feed
-Added safe unmarked filtering
-Improved insertion logic for all card types
-Zero console error release
-Fixes for /titles/latest and control bar duplication
-Resolved container detection issues
-Removed “Show only unread” per user request
-Retained full tag blacklist system
-Introduced tag blacklist UI
-Added settings menu
-API metadata batching system
-(And all additional fixes spanning from the original script to present.)
-
-🧩 Compatibility
-
-Tested on:
-Chromium / Chrome / Edge
-Firefox
-Brave
-Opera GX
-Works across all MangaDex deployments and UI themes (light/dark).
-
-📬 Contributions Only the main source codes attributed above with alot of testing and tweaking thur Several Ai Tools Learned quite a bit during the process.
-
-Pull requests are welcome!
-Please follow the repo structure and include:
-
-Clear descriptions
-No inline minification
-📄 License
-MIT License — Free for modification and distribution.
-Credit appreciated but not required.
+MangaDex++ Enhanced
+├── CONFIG / STATE
+│   ├── Color constants
+│   └── Toggle state variables
+├── UTILITIES
+│   └── UUID extraction
+├── EXPORT / IMPORT
+│   ├── exportLocalStorage()
+│   └── importLocalStorage()
+├── SETTINGS COG
+│   └── createSettingsCog()
+├── PER-TITLE CONTROLS
+│   └── createControlsRow()
+├── INSERTION HELPERS
+│   ├── getCandidateContainerForAnchor()
+│   ├── insertControlsUnderTitleForAnchor()
+│   └── addControlsToAll()
+├── FEED UNREAD DETECTION
+│   ├── hasUnreadChaptersInFeedContainer()
+│   └── hideAllReadFeed()
+├── FILTER LOGIC
+│   ├── syncColors()
+│   ├── isMangaContainer()
+│   └── applyFilters()
+├── TOP CONTROLS
+│   └── addTopControls()
+└── RUNNER & OBSERVER
+    ├── runOnce()
+    ├── scheduleRun()
+    └── Mutation Observer
