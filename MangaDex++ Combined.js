@@ -167,7 +167,6 @@
     row.style.marginTop = "6px";
     row.style.display = "flex";
     row.style.gap = "6px";
-    row.style.flexWrap = "wrap"; // Allow wrapping on small cards
 
     // prevent navigation when clicking buttons
     row.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); return false; });
@@ -182,8 +181,8 @@
       b.style.borderRadius = "4px";
       b.style.cursor = "pointer";
       b.style.background = "transparent";
-      b.style.fontSize = "12px"; // Smaller font for dense cards
-      b.style.minWidth = "60px"; // Ensure consistent button width
+      b.style.fontSize = "18px"; // Smaller font for dense cards
+      b.style.minWidth = "70px"; // Ensure consistent button width
       b.addEventListener("click", e => {
         e.preventDefault();
         e.stopPropagation();
@@ -227,7 +226,7 @@
 
       // Check if this is a dense manga card
       const isDenseCard = cont.classList.contains("manga-card") && cont.classList.contains("dense");
-      
+
       const title =
         cont.querySelector(".chapter-feed__title") ||
         cont.querySelector(".title") ||
@@ -235,7 +234,7 @@
         a;
 
       const controls = createControlsRow(id);
-      
+
       if (isDenseCard) {
         // For dense cards, insert controls after the cover image or in a better position
         const cover = cont.querySelector(".manga-card-cover");
