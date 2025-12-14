@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.5.7 (Stable Controls, Hide Read Fixed)
-// @version      2.5.7
+// @name         MangaDex++ Enhanced v2.5.6 (Stable Controls, Hide Read Fixed)
+// @version      2.5.6
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
 // @description  Read / Ignore / Clear buttons on every manga card, Stable controls + robust filtering across feed/latest/recent/follows + no duplicate top controls + export/import + feed hide-all-read detection
@@ -167,6 +167,7 @@
     row.style.marginTop = "6px";
     row.style.display = "flex";
     row.style.gap = "6px";
+    row.style.flexWrap = "wrap"; // Allow wrapping on small cards
 
     // prevent navigation when clicking buttons
     row.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); return false; });
@@ -181,6 +182,8 @@
       b.style.borderRadius = "4px";
       b.style.cursor = "pointer";
       b.style.background = "transparent";
+      b.style.fontSize = "12px"; // Smaller font for dense cards
+      b.style.minWidth = "60px"; // Ensure consistent button width
       b.addEventListener("click", e => {
         e.preventDefault();
         e.stopPropagation();
@@ -222,6 +225,9 @@
       if (!cont) return;
       if (cont.querySelector(`.mangadexpp-controls input[entryid="${id}"]`)) return;
 
+      // Check if this is a dense manga card
+      const isDenseCard = cont.classList.contains("manga-card") && cont.classList.contains("dense");
+      
       const title =
         cont.querySelector(".chapter-feed__title") ||
         cont.querySelector(".title") ||
@@ -229,8 +235,23 @@
         a;
 
       const controls = createControlsRow(id);
-      try { title.parentNode.insertBefore(controls, title.nextSibling); }
-      catch { cont.appendChild(controls); }
+      
+      if (isDenseCard) {
+        // For dense cards, insert controls after the cover image or in a better position
+        const cover = cont.querySelector(".manga-card-cover");
+        if (cover) {
+          // Insert after the cover but before the title/content
+          cover.parentNode.insertBefore(controls, cover.nextSibling);
+        } else {
+          // Fallback: insert after title
+          try { title.parentNode.insertBefore(controls, title.nextSibling); }
+          catch { cont.appendChild(controls); }
+        }
+      } else {
+        // For regular cards, insert after title as before
+        try { title.parentNode.insertBefore(controls, title.nextSibling); }
+        catch { cont.appendChild(controls); }
+      }
     } catch (e) {
       // ignore
     }
