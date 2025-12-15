@@ -160,13 +160,15 @@
     return wrapper;
   }
 
-  /* ================ PER-TITLE CONTROLS ================ */
-  function createControlsRow(entryID) {
+  // ================ PER-TITLE CONTROLS ================
+function createControlsRow(entryID) {
     const row = document.createElement("div");
     row.className = "mangadexpp-controls";
     row.style.marginTop = "6px";
     row.style.display = "flex";
     row.style.gap = "6px";
+    row.style.justifyContent = "flex-start";
+    row.style.flexDirection = "row";
 
     // prevent navigation when clicking buttons
     row.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); return false; });
