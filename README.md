@@ -1,165 +1,146 @@
-This repo is a personal copy of combined codes it two other repo's soucres are 
-https://github.com/Theo1996/mangadex-plus-plus-json-history-export-imporr and https://github.com/MangaDexPP/userscript
-The use of these is ment for My own learning and Free to the public until such time as the Original code makers revoke or inform me they do not wish me to publicly use these codes. all rights go to the orginal coders and outside of what tweaks i may do to my own version. 
+📘 MangaDex++ Enhanced
 
-# MangaDex++ Combined
+A third-party userscript that adds persistent Read / Ignore / Clear controls, filtering, and feed-aware visibility options to MangaDex — without using the MangaDex API.
 
-A comprehensive userscript that enhances your MangaDex experience with quality-of-life improvements, manga tracking, and data management features.
+⚠️ This project is not affiliated with or endorsed by MangaDex.
 
-![Version](https://img.shields.io/badge/version-2.0-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+📦 Overview
 
-MangaDex++ Combined V 2.5.7 
+MangaDex++ Enhanced improves manga browsing on MangaDex by allowing users to mark titles as Read, Ignored, or Unmarked, then filter visibility accordingly across feeds and listings.
 
-A powerful userscript for MangaDex.org that adds Read/Ignore/Clear buttons to every manga card with robust filtering capabilities across all pages.
+This repository is a personal combined and modified copy of existing open-source MangaDex userscripts, maintained for learning purposes and shared publicly in good faith.
 
-📋 Features
-Core Functionality
-Read/Ignore/Clear buttons on every manga card and chapter feed
-Four toggle controls:
-Toggle Read: Hide/Show marked "Read" manga
-Toggle Ignore: Hide/Show marked "Ignore" manga (default: hidden)
-Toggle Unmarked: Hide/Show unmarked manga
-Hide All Read?: Hide entire feed entries with no unread chapters
-Works on all MangaDex pages:
-/titles/feed - Latest chapter feed
-/titles/follows - Followed manga
-/titles - All titles
-/titles/recent - Recently updated
-/titles/latest - Latest updates
-/title/* - Individual manga pages
-And more!
-Data Management
-Export Data: Backup all your Read/Ignore marks to JSON
-Import Data: Restore from backup or migrate to another browser
-Local Storage: All data stored locally in your browser
-Smart Filtering
-Status-based filtering: Show/hide based on Read/Ignore/Unmarked status
-Feed optimization: "Hide All Read" detects chapters with no unread content
-Automatic updates: Works with MangaDex's dynamic content loading
-Duplicate control prevention: Only shows one set of controls
-🚀 Installation
+✨ Features
+📌 Per-Title Controls
+
+Adds Read / Ignore / Clear buttons to manga entries
+
+Works on:
+
+Feed pages
+
+Latest pages
+
+Card and list layouts
+
+Prevents duplicate control injection
+
+Buttons do not trigger navigation
+
+🎛️ Global Filter Controls
+
+Toggle visibility for:
+
+Read titles
+
+Ignored titles
+
+Unmarked titles
+
+Optional Hide All Read (Feed-Only) toggle
+
+Uses chapter read markers
+
+Never affects title detail pages
+
+🧠 Smart Page Awareness
+
+Feed & Latest pages:
+
+Controls appear under cover art
+
+Other browsing pages:
+
+Controls appear under the title or before tags
+
+Title detail pages:
+
+Always visible
+
+Controls are color-synced only (never hidden)
+
+⚙️ Settings Menu
+
+Integrated ⚙ settings cog in the top control bar
+
+One-click:
+
+Export stored data to JSON
+
+Import stored data from JSON
+
+💾 Persistent Storage
+
+Uses browser localStorage
+
+No API usage
+
+Status persists across sessions and page reloads
+
+🛡️ Stability & Safety
+
+MutationObserver-based injection (SPA-safe)
+
+Defensive DOM checks to prevent layout breakage
+
+Silent failure on unsupported layouts
+
+No external dependencies
+
+🔧 Installation
 Requirements
-A userscript manager browser extension:
-Tampermonkey ( Chrome | Firefox )
-Violentmonkey ( Chrome | Firefox )
-Greasemonkey ( Firefox )
-Installation Methods
-Method 1: Direct Install (Recommended)
-Click this link: Install MangaDex++ Enhanced
-Your userscript manager should open and prompt for installation
-Click "Install" or "Confirm"
-Method 2: Manual Install
-Open your userscript manager
-Create a new script
-Copy the entire code from this repository
-Paste and save
-📖 Usage
-Basic Usage
-Navigate to any MangaDex page with manga listings
-Control buttons appear automatically on each manga card
-Click "Read" to mark a manga as read (green highlight)
-Click "Ignore" to mark a manga to ignore (red highlight)
-Click "Clear" to remove any marks
-Control Buttons
-The script adds control buttons at the top of MangaDex pages:
 
-| Button | Description | Default State | |--------|-------------|---------------| | Toggle Read | Hide/show marked "Read" manga | Visible | | Toggle Ignore | Hide/show marked "Ignore" manga | Hidden | | Toggle Unmarked | Hide/show unmarked manga | Visible | | Hide All Read? | Hide feed entries with no unread chapters | Hidden | | ⚙ | Settings menu | Always visible |
+Tampermonkey or Violentmonkey
 
-Settings Menu (⚙)
-Click the gear icon to access:
+Install
 
-Export Data: Download all your marks as a JSON file
-Import Data: Upload a JSON file to restore your marks
-🔧 Configuration
-Color Coding
-The script uses semi-transparent colors to indicate status:
+Install a userscript manager
 
-| Status | Color | Description | |--------|-------|-------------| | Read | #13ab493d (green) | Manga marked as read | | Ignore | #ab13133d (red) | Manga marked to ignore | | Unmarked | #4242cd3d (blue) | No status set | | Settings | #6b72803d (gray) | Settings button |
+Open the direct install link below
 
-Default States
- copy
-javascript
+Confirm installation
 
-let hideRead = false;      // Read manga are visible by default
-let hideIgnore = true;     // Ignored manga are hidden by default
-let hideUnmarked = false;  // Unmarked manga are visible by default
-let hideAllRead = true;    // Feed entries with all chapters read are hidden
-💾 Data Management
-Exporting Data
-Click the ⚙ settings button
-Click "Export Data"
-A JSON file (mangadexpp-localstorage.json) will download
-Store this file safely for backup
-Importing Data
-Click the ⚙ settings button
-Click "Import Data"
-Select your backup JSON file
-The page will reload with your marks restored
-Data Location
-All data is stored in your browser's localStorage under keys that match manga IDs:
+Visit MangaDex — controls load automatically
 
-"1" = Read status
-"-1" = Ignore status
-🎯 Page Support
-The script works on the following MangaDex page types:
+🔗 Links
 
-| Page Type | URL Pattern | Supported | |-----------|-------------|-----------| | Chapter Feed | /titles/feed | ✅ Full support | | Follows | /titles/follows | ✅ Full support | | All Titles | /titles | ✅ Full support | | Recent Updates | /titles/recent | ✅ Full support | | Latest Updates | /titles/latest | ✅ Full support | | Search Results | /titles?search=... | ✅ Full support | | Manga Detail | /title/{uuid} | ✅ Full support | | Author Page | /author/{uuid} | ✅ Full support | | Group Page | /group/{uuid} | ✅ Full support | | Tag Page | /tag/{tag} | ✅ Full support |
+GitHub Repository:
+https://github.com/lordmage/MangaDex-Combined
 
-🛠 Technical Details
-How It Works
-Mutation Observer: Watches for DOM changes and adds buttons to new content
-UUID Extraction: Parses manga IDs from URLs using regex
-Local Storage: Stores status marks locally in your browser
-CSS Injection: Adds styles for buttons and colors dynamically
-Filter System: Hides/shows manga based on status and toggle states
-Code Structure
- copy
-javascript
-
+Direct Install:
 MangaDex++ Enhanced
-├── CONFIG / STATE
-│   ├── Color constants
-│   └── Toggle state variables
-├── UTILITIES
-│   └── UUID extraction
-├── EXPORT / IMPORT
-│   ├── exportLocalStorage()
-│   └── importLocalStorage()
-├── SETTINGS COG
-│   └── createSettingsCog()
-├── PER-TITLE CONTROLS
-│   └── createControlsRow()
-├── INSERTION HELPERS
-│   ├── getCandidateContainerForAnchor()
-│   ├── insertControlsUnderTitleForAnchor()
-│   └── addControlsToAll()
-├── FEED UNREAD DETECTION
-│   ├── hasUnreadChaptersInFeedContainer()
-│   └── hideAllReadFeed()
-├── FILTER LOGIC
-│   ├── syncColors()
-│   ├── isMangaContainer()
-│   └── applyFilters()
-├── TOP CONTROLS
-│   └── addTopControls()
-└── RUNNER & OBSERVER
-    ├── runOnce()
-    ├── scheduleRun()
-    └── Mutation Observer
-📄 License
-This project is licensed under an open-source license. See the repository for details.
+
+MangaDex:
+https://mangadex.org
+
+⚠️ Disclaimer
+
+This is a third-party userscript and is not affiliated with or endorsed by MangaDex.
+
+Use at your own risk.
+Always back up your data regularly.
+The developers are not responsible for any issues caused by using this script.
+
+📚 Source & Attribution Disclaimer
+
+This repository is a personal copy of combined code derived from the following projects:
+
+https://github.com/Theo1996/mangadex-plus-plus-json-history-export-imporr
+
+https://github.com/MangaDexPP/userscript
+
+The use of these sources is intended for personal learning purposes and is shared freely to the public unless and until the original authors request removal or restriction.
+
+All rights remain with the original code authors, except for minor tweaks and enhancements made to this personal version.
 
 🙏 Credits
-@Theo1996: Original MangaDexPP concept and implementation
-Lordmage: Current maintainer and enhancements
-Workik: Patches and fixes
-MangaDex Community: Testing and feedback
-🔗 Links
-GitHub Repository: lordmage/MangaDex-Combined
-Direct Install: MangaDex++ Enhanced
-MangaDex: https://mangadex.org
-⚠️ Disclaimer
-This is a third-party userscript and is not affiliated with or endorsed by MangaDex. Use at your own risk. The developers are not responsible for any issues caused by using this script. Always backup your data regularly.
 
-Happy Manga Reading! 📚
+@Theo1996 — Original MangaDexPP concept and implementation
+
+Lordmage — Current maintainer and enhancements
+
+Workik — Patches and fixes
+
+MangaDex Community — Testing and feedback
+
+Happy Manga Reading! 📚✨
