@@ -1,0 +1,83 @@
+name: 🐛 Bug Report
+description: Report something that is broken or not working as expected
+title: "[Bug]: "
+labels: ["bug"]
+assignees:
+  - lordmage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug!
+        Please provide **clear and complete information** so the issue can be reproduced.
+
+  - type: input
+    id: url
+    attributes:
+      label: Affected Page URL(s)
+      description: Where does the bug occur?
+      placeholder: https://mangadex.org/...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Script Version
+      description: Version of MangaDex++ Enhanced
+      placeholder: v2.6.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: manager
+    attributes:
+      label: Userscript Manager
+      options:
+        - Tampermonkey
+        - Violentmonkey
+        - Greasemonkey
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      placeholder: Chrome 122 / Firefox 123 / Edge
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: What happened? What did you expect?
+      placeholder: Controls duplicate, disappear, misalign, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Go to /titles/recent
+        2. Scroll down
+        3. Observe duplicate controls
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console Errors (if any)
+      description: Paste errors from DevTools → Console
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Screenshots, recordings, or extra notes
