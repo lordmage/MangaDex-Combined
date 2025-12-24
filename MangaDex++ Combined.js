@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.5.6 (Stable Controls, Hide Read Fixed)
-// @version      2.5.6
+// @name         MangaDex++ Enhanced v2.6.0
+// @version      2.6.0
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
-// @description  Read / Ignore / Clear buttons on every manga card, Stable controls + robust filtering across feed/latest/recent/follows + no duplicate top controls + export/import + feed hide-all-read detection
+// @description  Read / Ignore / Clear buttons on feed & latest pages under chapter-feed__cover
 // @author       @ Theo1996, MangaDexPP, patched by Workik
 // @homepageURL  https://github.com/lordmage/MangaDex-Combined
 // @updateURL    http://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
@@ -160,8 +160,8 @@
     return wrapper;
   }
 
-  // ================ PER-TITLE CONTROLS ================
-function createControlsRow(entryID) {
+  /* ================ PER-TITLE CONTROLS ================ */
+  function createControlsRow(entryID) {
     const row = document.createElement("div");
     row.className = "mangadexpp-controls";
     row.style.marginTop = "6px";
@@ -183,8 +183,15 @@ function createControlsRow(entryID) {
       b.style.borderRadius = "4px";
       b.style.cursor = "pointer";
       b.style.background = "transparent";
-      b.style.fontSize = "18px"; // Smaller font for dense cards
-      b.style.minWidth = "70px"; // Ensure consistent button width
+      b.style.fontSize = "14px";
+      b.style.minWidth = "70px";
+      b.style.height = "28px";
+      b.style.lineHeight = "28px";
+      b.style.boxSizing = "border-box";
+      b.style.whiteSpace = "nowrap";
+      b.style.fontFamily = "inherit";
+      b.style.fontWeight = "500";
+      b.style.border = "1px solid rgba(255, 255, 255, 0.1)";
       b.addEventListener("click", e => {
         e.preventDefault();
         e.stopPropagation();
@@ -192,6 +199,17 @@ function createControlsRow(entryID) {
         applyFilters();
         return false;
       });
+
+      // Add hover effect
+      b.addEventListener("mouseenter", () => {
+        b.style.opacity = "0.9";
+        b.style.transform = "translateY(-1px)";
+      });
+      b.addEventListener("mouseleave", () => {
+        b.style.opacity = "1";
+        b.style.transform = "translateY(0)";
+      });
+
       return b;
     }
 
@@ -202,7 +220,7 @@ function createControlsRow(entryID) {
     return row;
   }
 
-  /* ================ INSERTION HELPERS (support all card types) ================ */
+  /* ================ INSERTION HELPERS ================ */
   function getCandidateContainerForAnchor(a) {
     return (
       a.closest(".chapter-feed__container") ||
@@ -218,50 +236,94 @@ function createControlsRow(entryID) {
 
   function insertControlsUnderTitleForAnchor(a) {
     try {
+      // Skip if this anchor is already inside controls
       if (a.closest(".mangadexpp-controls")) return;
+
       const href = a.getAttribute("href") || a.href || "";
       const id = extractIdFromHref(href);
       if (!id) return;
+
       const cont = getCandidateContainerForAnchor(a);
       if (!cont) return;
-      if (cont.querySelector(`.mangadexpp-controls input[entryid="${id}"]`)) return;
 
-      // Check if this is a dense manga card
-      const isDenseCard = cont.classList.contains("manga-card") && cont.classList.contains("dense");
-
-      const title =
-        cont.querySelector(".chapter-feed__title") ||
-        cont.querySelector(".title") ||
-        cont.querySelector("a[href*='/title/']") ||
-        a;
+      // Check if controls already exist in this container for this ID
+      const existingControls = cont.querySelector(`.mangadexpp-controls input[entryid="${id}"]`);
+      if (existingControls) {
+        return;
+      }
 
       const controls = createControlsRow(id);
 
-      if (isDenseCard) {
-        // For dense cards, insert controls after the cover image or in a better position
-        const cover = cont.querySelector(".manga-card-cover");
-        if (cover) {
-          // Insert after the cover but before the title/content
-          cover.parentNode.insertBefore(controls, cover.nextSibling);
+      // Check if we're on feed or latest page
+      const currentUrl = window.location.href;
+      const isFeedPage = currentUrl.includes("/titles/feed");
+      const isLatestPage = currentUrl.includes("/titles/latest");
+      const isUnderCoverPage = isFeedPage || isLatestPage;
+
+      if (isUnderCoverPage) {
+        // On feed or latest page: insert under chapter-feed__cover
+        const coverElement = cont.querySelector(".chapter-feed__cover");
+        if (coverElement) {
+          // Insert after the cover element
+          coverElement.parentNode.insertBefore(controls, coverElement.nextSibling);
         } else {
-          // Fallback: insert after title
-          try { title.parentNode.insertBefore(controls, title.nextSibling); }
-          catch { cont.appendChild(controls); }
+          // Fallback: try to find title element
+          const titleElement = cont.querySelector('[style*="grid-area: title"]') ||
+                              cont.querySelector(".chapter-feed__title") ||
+                              cont.querySelector(".title") ||
+                              a;
+          try {
+            titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
+          } catch {
+            cont.appendChild(controls);
+          }
         }
       } else {
-        // For regular cards, insert after title as before
-        try { title.parentNode.insertBefore(controls, title.nextSibling); }
-        catch { cont.appendChild(controls); }
+        // On other pages: use original insertion logic
+        const titleElement = cont.querySelector('[style*="grid-area: title"]') ||
+                            cont.querySelector(".chapter-feed__title") ||
+                            cont.querySelector(".title") ||
+                            a;
+
+        try {
+          titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
+        } catch {
+          // Fallback: try to find tags row
+          const tagsRow = cont.querySelector(".flex.flex-wrap.gap-1.tags-row.tags.self-start");
+          if (tagsRow) {
+            tagsRow.parentNode.insertBefore(controls, tagsRow);
+          } else {
+            cont.appendChild(controls);
+          }
+        }
       }
     } catch (e) {
-      // ignore
+      // Silently fail
     }
   }
 
   function addControlsToAll() {
-    Array.from(document.querySelectorAll("a[href*='/title/']")).forEach(a => {
+    // Get all title links
+    const titleLinks = document.querySelectorAll("a[href*='/title/']");
+
+    // Track which containers we've already processed
+    const processedContainers = new Set();
+
+    // Process each link
+    titleLinks.forEach(a => {
+      // Skip navigation and header links
       if (a.closest("nav") || a.closest("header") || a.closest(".mangadexpp-settings-container")) return;
+
+      const cont = getCandidateContainerForAnchor(a);
+      if (!cont) return;
+
+      // Skip if we've already processed this container
+      if (processedContainers.has(cont)) {
+        return;
+      }
+
       insertControlsUnderTitleForAnchor(a);
+      processedContainers.add(cont);
     });
   }
 
@@ -289,7 +351,7 @@ function createControlsRow(entryID) {
     });
   }
 
-  /* ================ FILTER LOGIC (safe unmarked) ================ */
+  /* ================ FILTER LOGIC ================ */
   function syncColors(row, flag) {
     try {
       const readBtn = row.querySelector(".mangadexpp-read");
@@ -362,8 +424,17 @@ function createControlsRow(entryID) {
     function mk(label, get, set, color, cb) {
       const b = document.createElement("input");
       b.type = "button"; b.value = label;
-      b.style.padding = "0 1em"; b.style.marginLeft = "6px"; b.style.borderRadius = "4px";
+      b.style.padding = "0 1em";
+      b.style.marginLeft = "6px";
+      b.style.borderRadius = "4px";
       b.style.cursor = "pointer"; b.style.backgroundColor = get() ? color : "transparent";
+      b.style.fontSize = "14px";
+      b.style.height = "32px";
+      b.style.lineHeight = "32px";
+      b.style.boxSizing = "border-box";
+      b.style.fontFamily = "inherit";
+      b.style.fontWeight = "500";
+      b.style.border = "1px solid rgba(255, 255, 255, 0.1)";
       b.addEventListener("click", () => {
         const v = !get();
         set(v);
@@ -371,6 +442,17 @@ function createControlsRow(entryID) {
         applyFilters();
         if (typeof cb === "function") cb();
       });
+
+      // Add hover effect to match
+      b.addEventListener("mouseenter", () => {
+        b.style.opacity = "0.9";
+        b.style.transform = "translateY(-1px)";
+      });
+      b.addEventListener("mouseleave", () => {
+        b.style.opacity = "1";
+        b.style.transform = "translateY(0)";
+      });
+
       return b;
     }
     controls.appendChild(mk("Toggle Read", () => hideRead, v => hideRead = v, READ_BUTTON_COLOR));
