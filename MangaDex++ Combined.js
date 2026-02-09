@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.6.0
-// @version      2.6.0
+// @name         MangaDex++ Enhanced v2.6.2
+// @version      2.6.2
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
-// @description  Read / Ignore / Clear buttons on feed & latest pages under chapter-feed__cover
+// @description  Read / Ignore / Clear buttons on every manga card - Optimized performance
 // @author       @ Theo1996, MangaDexPP, patched by Workik
 // @homepageURL  https://github.com/lordmage/MangaDex-Combined
 // @updateURL    http://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
@@ -38,10 +38,45 @@
   /* ================ UTILITIES ================ */
   function extractIdFromHref(href) {
     if (!href) return null;
+
+    // First try UUID pattern
     const m = href.match(UUID_RE);
     if (m) return m[0];
-    const parts = href.split("/");
-    for (const p of parts) if (p && p.length >= 10) return p;
+
+    // Try to extract from URL path
+    try {
+      // Parse URL
+      const url = new URL(href);
+      const pathParts = url.pathname.split('/');
+
+      // Look for 'title' in path and get next segment
+      const titleIndex = pathParts.indexOf('title');
+      if (titleIndex !== -1 && titleIndex + 1 < pathParts.length) {
+        const potentialId = pathParts[titleIndex + 1];
+        // Return if it's not empty
+        if (potentialId && potentialId.trim() !== '') {
+          return potentialId;
+        }
+      }
+
+      // Fallback: look for any non-empty path segment that's not a common word
+      const commonWords = ['title', 'chapter', 'manga', 'tag', 'group', 'user', 'settings', 'login', 'register'];
+      for (const part of pathParts) {
+        if (part && part.trim() !== '' && !commonWords.includes(part.toLowerCase())) {
+          return part;
+        }
+      }
+    } catch (e) {
+      // If URL parsing fails, fall back to original logic but skip domains
+      const parts = href.split("/");
+      for (const p of parts) {
+        // Skip common domains and protocol parts
+        if (p && p.length >= 1 && !p.includes('http') && !p.includes('www.') && !p.includes('.org') && !p.includes('.com')) {
+          return p;
+        }
+      }
+    }
+
     return null;
   }
 
@@ -164,9 +199,9 @@
   function createControlsRow(entryID) {
     const row = document.createElement("div");
     row.className = "mangadexpp-controls";
-    row.style.marginTop = "6px";
+    row.style.marginTop = "4px";
     row.style.display = "flex";
-    row.style.gap = "6px";
+    row.style.gap = "4px";
     row.style.justifyContent = "flex-start";
     row.style.flexDirection = "row";
 
@@ -179,19 +214,20 @@
       b.value = label;
       b.className = cls;
       b.setAttribute("entryid", entryID);
-      b.style.padding = "0 8px";
-      b.style.borderRadius = "4px";
+      b.style.padding = "2px 6px";
+      b.style.borderRadius = "3px";
       b.style.cursor = "pointer";
       b.style.background = "transparent";
       b.style.fontSize = "14px";
       b.style.minWidth = "70px";
       b.style.height = "28px";
-      b.style.lineHeight = "28px";
+      b.style.lineHeight = "24px";
       b.style.boxSizing = "border-box";
       b.style.whiteSpace = "nowrap";
       b.style.fontFamily = "inherit";
       b.style.fontWeight = "500";
       b.style.border = "1px solid rgba(255, 255, 255, 0.1)";
+      b.style.transition = "all 0.15s ease";
       b.addEventListener("click", e => {
         e.preventDefault();
         e.stopPropagation();
@@ -204,10 +240,12 @@
       b.addEventListener("mouseenter", () => {
         b.style.opacity = "0.9";
         b.style.transform = "translateY(-1px)";
+        b.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
       });
       b.addEventListener("mouseleave", () => {
         b.style.opacity = "1";
         b.style.transform = "translateY(0)";
+        b.style.boxShadow = "none";
       });
 
       return b;
@@ -252,49 +290,24 @@
         return;
       }
 
+      // Find the title element with grid-area: title
+      const titleElement = cont.querySelector('[style*="grid-area: title"]') ||
+                          cont.querySelector(".chapter-feed__title") ||
+                          cont.querySelector(".title") ||
+                          a;
+
       const controls = createControlsRow(id);
 
-      // Check if we're on feed or latest page
-      const currentUrl = window.location.href;
-      const isFeedPage = currentUrl.includes("/titles/feed");
-      const isLatestPage = currentUrl.includes("/titles/latest");
-      const isUnderCoverPage = isFeedPage || isLatestPage;
-
-      if (isUnderCoverPage) {
-        // On feed or latest page: insert under chapter-feed__cover
-        const coverElement = cont.querySelector(".chapter-feed__cover");
-        if (coverElement) {
-          // Insert after the cover element
-          coverElement.parentNode.insertBefore(controls, coverElement.nextSibling);
+      // Try to insert after the title element
+      try {
+        titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
+      } catch {
+        // Fallback: try to find tags row
+        const tagsRow = cont.querySelector(".flex.flex-wrap.gap-1.tags-row.tags.self-start");
+        if (tagsRow) {
+          tagsRow.parentNode.insertBefore(controls, tagsRow);
         } else {
-          // Fallback: try to find title element
-          const titleElement = cont.querySelector('[style*="grid-area: title"]') ||
-                              cont.querySelector(".chapter-feed__title") ||
-                              cont.querySelector(".title") ||
-                              a;
-          try {
-            titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
-          } catch {
-            cont.appendChild(controls);
-          }
-        }
-      } else {
-        // On other pages: use original insertion logic
-        const titleElement = cont.querySelector('[style*="grid-area: title"]') ||
-                            cont.querySelector(".chapter-feed__title") ||
-                            cont.querySelector(".title") ||
-                            a;
-
-        try {
-          titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
-        } catch {
-          // Fallback: try to find tags row
-          const tagsRow = cont.querySelector(".flex.flex-wrap.gap-1.tags-row.tags.self-start");
-          if (tagsRow) {
-            tagsRow.parentNode.insertBefore(controls, tagsRow);
-          } else {
-            cont.appendChild(controls);
-          }
+          cont.appendChild(controls);
         }
       }
     } catch (e) {
@@ -424,17 +437,18 @@
     function mk(label, get, set, color, cb) {
       const b = document.createElement("input");
       b.type = "button"; b.value = label;
-      b.style.padding = "0 1em";
-      b.style.marginLeft = "6px";
-      b.style.borderRadius = "4px";
+      b.style.padding = "0 0.8em";
+      b.style.marginLeft = "4px";
+      b.style.borderRadius = "3px";
       b.style.cursor = "pointer"; b.style.backgroundColor = get() ? color : "transparent";
       b.style.fontSize = "14px";
-      b.style.height = "32px";
-      b.style.lineHeight = "32px";
+      b.style.height = "28px";
+      b.style.lineHeight = "28px";
       b.style.boxSizing = "border-box";
       b.style.fontFamily = "inherit";
       b.style.fontWeight = "500";
       b.style.border = "1px solid rgba(255, 255, 255, 0.1)";
+      b.style.transition = "all 0.15s ease";
       b.addEventListener("click", () => {
         const v = !get();
         set(v);
@@ -447,10 +461,12 @@
       b.addEventListener("mouseenter", () => {
         b.style.opacity = "0.9";
         b.style.transform = "translateY(-1px)";
+        b.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
       });
       b.addEventListener("mouseleave", () => {
         b.style.opacity = "1";
         b.style.transform = "translateY(0)";
+        b.style.boxShadow = "none";
       });
 
       return b;
@@ -463,26 +479,116 @@
     controls.appendChild(cog);
   }
 
-  /* ================ RUNNER & OBSERVER ================ */
+  /* ================ OPTIMIZED MUTATION OBSERVER ================ */
   function runOnce() {
     addTopControls();
     addControlsToAll();
     applyFilters();
   }
 
+  // Optimized scheduling with debouncing and throttling
   let scheduled = false;
+  let lastRunTime = 0;
+  const MIN_RUN_INTERVAL = 100; // Minimum 100ms between runs
+  const DEBOUNCE_DELAY = 50; // Wait 50ms after last mutation before running
+
+  let debounceTimer = null;
+  let mutationCount = 0;
+  const MAX_MUTATIONS_BEFORE_IMMEDIATE = 10; // If many mutations happen, run immediately
+
   function scheduleRun() {
-    if (scheduled) return;
-    scheduled = true;
-    setTimeout(() => {
-      scheduled = false;
-      try { runOnce(); } catch (e) { console.error(e); }
-    }, 150);
+    // Count this mutation
+    mutationCount++;
+
+    // Clear any existing debounce timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    const now = Date.now();
+    const timeSinceLastRun = now - lastRunTime;
+
+    // If we've had many mutations in quick succession, run immediately
+    if (mutationCount >= MAX_MUTATIONS_BEFORE_IMMEDIATE) {
+      if (!scheduled) {
+        scheduled = true;
+        mutationCount = 0;
+        setTimeout(() => {
+          scheduled = false;
+          lastRunTime = Date.now();
+          try { runOnce(); } catch (e) { console.error(e); }
+        }, 0);
+      }
+      return;
+    }
+
+    // If enough time has passed since last run, schedule immediately
+    if (timeSinceLastRun >= MIN_RUN_INTERVAL && !scheduled) {
+      scheduled = true;
+      mutationCount = 0;
+      setTimeout(() => {
+        scheduled = false;
+        lastRunTime = Date.now();
+        try { runOnce(); } catch (e) { console.error(e); }
+      }, 0);
+      return;
+    }
+
+    // Otherwise, debounce and wait for mutations to settle
+    debounceTimer = setTimeout(() => {
+      if (!scheduled) {
+        scheduled = true;
+        mutationCount = 0;
+        setTimeout(() => {
+          scheduled = false;
+          lastRunTime = Date.now();
+          try { runOnce(); } catch (e) { console.error(e); }
+        }, 0);
+      }
+    }, DEBOUNCE_DELAY);
   }
 
-  new MutationObserver(scheduleRun).observe(document.body, { childList: true, subtree: true });
+  // Optimized MutationObserver configuration
+  const observer = new MutationObserver((mutations) => {
+    // Check if mutations are relevant (add nodes or change attributes)
+    const hasRelevantMutations = mutations.some(mutation => {
+      // Check for added nodes
+      if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+        return true;
+      }
 
-  // kickoff
+      // Check for attribute changes on relevant elements
+      if (mutation.type === 'attributes') {
+        const target = mutation.target;
+        // Only care about certain attributes or elements
+        if (target.classList && (
+          target.classList.contains('chapter-feed__container') ||
+          target.classList.contains('manga-card') ||
+          target.classList.contains('md-card') ||
+          target.tagName === 'A'
+        )) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+
+    if (hasRelevantMutations) {
+      scheduleRun();
+    }
+  });
+
+  // Start observing with optimized settings
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'href', 'style'],
+    characterData: false // Don't need text changes
+  });
+
+  // Initial run
   scheduleRun();
 
 })();
