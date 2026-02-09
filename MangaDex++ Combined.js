@@ -12,6 +12,7 @@
 // @icon         https://icons.duckduckgo.com/ip2/www.mangadex.org.ico
 // @match        https://mangadex.org/*
 // @grant        none
+
 // ==/UserScript==
 /* global localStorage, URL, Blob, FileReader */
 /* eslint-disable no-unused-vars */
@@ -36,6 +37,9 @@
   const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
   /* ================ UTILITIES ================ */
+    function isInTitlesSidebar(el) {
+  return !!el.closest("#section-Titles");
+}
   function extractIdFromHref(href) {
     if (!href) return null;
 
@@ -324,8 +328,13 @@
 
     // Process each link
     titleLinks.forEach(a => {
-      // Skip navigation and header links
-      if (a.closest("nav") || a.closest("header") || a.closest(".mangadexpp-settings-container")) return;
+  // Skip navigation, headers, and Titles sidebar
+  if (
+    a.closest("nav") ||
+    a.closest("header") ||
+    a.closest(".mangadexpp-settings-container") ||
+    isInTitlesSidebar(a)
+  ) return;
 
       const cont = getCandidateContainerForAnchor(a);
       if (!cont) return;
