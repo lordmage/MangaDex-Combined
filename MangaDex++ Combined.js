@@ -266,6 +266,7 @@
   function getCandidateContainerForAnchor(a) {
     return (
       a.closest(".chapter-feed__container") ||
+      a.closest(".chapter-feed__cover") ||
       a.closest(".manga-card") ||
       a.closest(".md-card") ||
       a.closest(".group.md-card") ||
@@ -295,9 +296,9 @@
       }
 
       // Find the title element with grid-area: title
-      const titleElement = cont.querySelector('[style*="grid-area: title"]') ||
-                          cont.querySelector(".chapter-feed__title") ||
-                          cont.querySelector(".title") ||
+      const titleElement = 
+                          cont.querySelector(".chapter-feed__cover") ||
+                          cont.querySelector(".chapter-feed__cover-image") ||
                           a;
 
       const controls = createControlsRow(id);
