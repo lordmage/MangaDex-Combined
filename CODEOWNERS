@@ -1,0 +1,36 @@
+##############################################
+# GLOBAL DEFAULT
+##############################################
+
+# You own everything
+* @lordmage
+
+##############################################
+# CORE SCRIPT (MOST IMPORTANT FILE)
+##############################################
+
+# Main userscript – require trusted reviewers
+"MangaDex++ Combined.js" @lordmage @core-dev @js-reviewer
+
+##############################################
+# DOCUMENTATION
+##############################################
+
+README.md        @lordmage @docs-maintainer
+CHANGELOG.md     @lordmage @docs-maintainer
+CONTRIBUTING.md  @lordmage @docs-maintainer
+CODE_OF_CONDUCT.md @lordmage @docs-maintainer
+SECURITY.md      @lordmage @security-reviewer
+
+##############################################
+# LICENSING (LOCK THIS DOWN)
+##############################################
+
+LICENSE          @lordmage
+LICENSE-NOTE.md  @lordmage
+
+##############################################
+# FALLBACK FOR MARKDOWN FILES
+##############################################
+
+*.md @lordmage @docs-maintainer
