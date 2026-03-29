@@ -87,7 +87,7 @@
   /* ================ EXPORT / IMPORT ================ */
   function isMangaDexPPKey(key, value) {
     // Only allow UUID-formatted keys (manga IDs) with values "1" or "-1"
-    return UUID_RE.test(key) && (value === "1" || value === "-1");
+    return UUID_RE.test(key) && (value == "1" || value == "-1");
   }
 
   function exportLocalStorage() {
