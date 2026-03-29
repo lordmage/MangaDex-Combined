@@ -85,16 +85,32 @@
   }
 
   /* ================ EXPORT / IMPORT ================ */
+  function isMangaDexPPKey(key, value) {
+    // Only allow UUID-formatted keys (manga IDs) with values "1" or "-1"
+    return UUID_RE.test(key) && (value == "1" || value == "-1");
+  }
+
   function exportLocalStorage() {
     try {
-      const data = JSON.stringify(localStorage, null, 2);
+      const mangadexppData = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
+        // Only export MangaDex++ manga status keys
+        if (isMangaDexPPKey(key, value)) {
+          mangadexppData[key] = value;
+        }
+      }
+      const data = JSON.stringify(mangadexppData, null, 2);
       const blob = new Blob([data], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "mangadexpp-localstorage.json";
+      a.download = "mangadexpp-data.json";
       document.body.appendChild(a);
       a.click();
       a.remove();
+      URL.revokeObjectURL(a.href);
+      console.log(`MangaDex++ exported ${Object.keys(mangadexppData).length} entries (auth tokens excluded)`);
     } catch (e) {
       console.error("Export failed", e);
       alert("Export failed — see console.");
@@ -112,8 +128,20 @@
       r.onload = () => {
         try {
           const parsed = JSON.parse(r.result);
-          Object.entries(parsed).forEach(([k, v]) => localStorage.setItem(k, v));
-          alert("Import complete. Refresh if needed.");
+          let importedCount = 0;
+          let skippedCount = 0;
+          Object.entries(parsed).forEach(([k, v]) => {
+            // Only import valid MangaDex++ keys
+            if (isMangaDexPPKey(k, v)) {
+              localStorage.setItem(k, v);
+              importedCount++;
+            } else {
+              console.warn(`Skipped invalid key: ${k}=${v}`);
+              skippedCount++;
+            }
+          });
+          alert(`Import complete: ${importedCount} entries imported, ${skippedCount} invalid entries skipped.\nRefresh if needed.`);
+          console.log(`MangaDex++ import: ${importedCount} valid, ${skippedCount} skipped (auth tokens protected)`);
         } catch (err) {
           console.error("Import failed", err);
           alert("Invalid JSON file.");
