@@ -9,18 +9,18 @@
 # CORE SCRIPT (MOST IMPORTANT FILE)
 ##############################################
 
-# Main userscript – require trusted reviewers
-"MangaDex++ Combined.js" @lordmage @core-dev @js-reviewer
+# Main userscript – code review required
+"MangaDex++ Combined.js" @lordmage
 
 ##############################################
 # DOCUMENTATION
 ##############################################
 
-README.md        @lordmage @docs-maintainer
-CHANGELOG.md     @lordmage @docs-maintainer
-CONTRIBUTING.md  @lordmage @docs-maintainer
-CODE_OF_CONDUCT.md @lordmage @docs-maintainer
-SECURITY.md      @lordmage @security-reviewer
+README.md        @lordmage
+CHANGELOG.md     @lordmage
+CONTRIBUTING.md  @lordmage
+CODE_OF_CONDUCT.md @lordmage
+SECURITY.md      @lordmage
 
 ##############################################
 # LICENSING (LOCK THIS DOWN)
@@ -33,4 +33,4 @@ LICENSE-NOTE.md  @lordmage
 # FALLBACK FOR MARKDOWN FILES
 ##############################################
 
-*.md @lordmage @docs-maintainer
+*.md @lordmage
