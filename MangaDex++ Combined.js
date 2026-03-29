@@ -109,6 +109,7 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
+      URL.revokeObjectURL(a.href);
       console.log(`MangaDex++ exported ${Object.keys(mangadexppData).length} entries (auth tokens excluded)`);
     } catch (e) {
       console.error("Export failed", e);
