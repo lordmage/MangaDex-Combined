@@ -82,7 +82,8 @@
 
     async getMangaDetails(mangaId) {
       try {
-        const response = await fetch(`${this.baseURL}/manga/${mangaId}`);
+       const response = await fetch(`${this.baseURL}/manga/${mangaId}`);
+        if (!response.ok) return;
         const data = await response.json();
         if (data.data) {
           console.log("Manga Details:", data.data.attributes);
