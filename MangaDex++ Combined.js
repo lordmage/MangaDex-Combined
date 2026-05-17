@@ -132,7 +132,7 @@
           console.log("Cleanup complete:", result.invalidIds);
         }
       } else {
-        alert("All entries are valid!");
+        alert("entries are processed!");
       }
     }
   };
