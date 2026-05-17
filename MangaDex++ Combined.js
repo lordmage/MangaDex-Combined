@@ -38,11 +38,13 @@
     
     async validateMangaIdWithAPI(mangaId) {
       try {
-        const response = await fetch(`${this.baseURL}/manga/${mangaId}`);
-        return response.status === 200;
+       const response = await fetch(`${this.baseURL}/manga/${mangaId}`);
+        if (response.status === 200) return true;
+        if (response.status === 404) return false;
+        return null;
       } catch (e) {
         console.error("Validation error:", e);
-        return false;
+        return null;
       }
     },
 
