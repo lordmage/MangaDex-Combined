@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.6.2
-// @version      2.6.2
+// @name         MangaDex++ Enhanced v2.6.3
+// @version      2.6.3
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
 // @description  Read / Ignore / Clear buttons on every manga card - Optimized performance
@@ -10,12 +10,8 @@
 // @downloadURL  http://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
 // @match        https://mangadex.org/*
 // @icon         https://icons.duckduckgo.com/ip2/www.mangadex.org.ico
-// @match        https://mangadex.org/*
 // @grant        none
-
 // ==/UserScript==
-/* global localStorage, URL, Blob, FileReader */
-/* eslint-disable no-unused-vars */
 
 (function () {
   "use strict";
@@ -49,21 +45,17 @@
 
     // Try to extract from URL path
     try {
-      // Parse URL
       const url = new URL(href);
       const pathParts = url.pathname.split('/');
 
-      // Look for 'title' in path and get next segment
       const titleIndex = pathParts.indexOf('title');
       if (titleIndex !== -1 && titleIndex + 1 < pathParts.length) {
         const potentialId = pathParts[titleIndex + 1];
-        // Return if it's not empty
         if (potentialId && potentialId.trim() !== '') {
           return potentialId;
         }
       }
 
-      // Fallback: look for any non-empty path segment that's not a common word
       const commonWords = ['title', 'chapter', 'manga', 'tag', 'group', 'user', 'settings', 'login', 'register'];
       for (const part of pathParts) {
         if (part && part.trim() !== '' && !commonWords.includes(part.toLowerCase())) {
@@ -71,22 +63,18 @@
         }
       }
     } catch (e) {
-      // If URL parsing fails, fall back to original logic but skip domains
       const parts = href.split("/");
       for (const p of parts) {
-        // Skip common domains and protocol parts
         if (p && p.length >= 1 && !p.includes('http') && !p.includes('www.') && !p.includes('.org') && !p.includes('.com')) {
           return p;
         }
       }
     }
-
     return null;
   }
 
   /* ================ EXPORT / IMPORT ================ */
   function isMangaDexPPKey(key, value) {
-    // Only allow UUID-formatted keys (manga IDs) with values "1" or "-1"
     return UUID_RE.test(key) && (value == "1" || value == "-1");
   }
 
@@ -96,7 +84,6 @@
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         const value = localStorage.getItem(key);
-        // Only export MangaDex++ manga status keys
         if (isMangaDexPPKey(key, value)) {
           mangadexppData[key] = value;
         }
@@ -131,7 +118,6 @@
           let importedCount = 0;
           let skippedCount = 0;
           Object.entries(parsed).forEach(([k, v]) => {
-            // Only import valid MangaDex++ keys
             if (isMangaDexPPKey(k, v)) {
               localStorage.setItem(k, v);
               importedCount++;
@@ -184,10 +170,8 @@
     menu.style.boxSizing = "border-box";
     menu.style.color = "#eee";
 
-    // Prevent clicks inside the menu from bubbling to document
     menu.addEventListener("click", e => e.stopPropagation());
 
-    // Data section
     const dataTitle = document.createElement("div");
     dataTitle.textContent = "Data";
     dataTitle.style.fontWeight = "700";
@@ -208,14 +192,12 @@
     imBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); importLocalStorage(); });
     menu.appendChild(imBtn);
 
-    // click outside closes the menu; click inside prevented above
     document.addEventListener("click", e => {
       if (!menu.contains(e.target) && e.target !== btn) {
         menu.style.display = "none";
       }
     });
 
-    // toggle open/close
     btn.addEventListener("click", e => {
       e.preventDefault();
       e.stopPropagation();
@@ -237,7 +219,6 @@
     row.style.justifyContent = "flex-start";
     row.style.flexDirection = "row";
 
-    // prevent navigation when clicking buttons
     row.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); return false; });
 
     function mk(label, cls, cb) {
@@ -268,7 +249,6 @@
         return false;
       });
 
-      // Add hover effect
       b.addEventListener("mouseenter", () => {
         b.style.opacity = "0.9";
         b.style.transform = "translateY(-1px)";
@@ -305,37 +285,63 @@
     );
   }
 
+  /* ================ ★ FIXED: INSERT ON DETAIL PAGE AFTER STATS ROW ================ */
   function insertControlsUnderTitleForAnchor(a) {
     try {
-      // Skip if this anchor is already inside controls
       if (a.closest(".mangadexpp-controls")) return;
 
       const href = a.getAttribute("href") || a.href || "";
       const id = extractIdFromHref(href);
       if (!id) return;
 
+      const isDetailPage = window.location.pathname.startsWith("/title/");
+      const pageMangaId = isDetailPage ? extractIdFromHref(window.location.pathname) : null;
+
+      // Global duplicate prevention on detail page
+      if (isDetailPage && id === pageMangaId) {
+        if (document.querySelector(`.mangadexpp-controls input[entryid="${id}"]`)) return;
+      }
+
       const cont = getCandidateContainerForAnchor(a);
       if (!cont) return;
 
-      // Check if controls already exist in this container for this ID
-      const existingControls = cont.querySelector(`.mangadexpp-controls input[entryid="${id}"]`);
-      if (existingControls) {
-        return;
-      }
-
-      // Find the title element with grid-area: title
-      const titleElement = 
-                          cont.querySelector(".chapter-feed__cover") ||
-                          cont.querySelector(".chapter-feed__cover-image") ||
-                          a;
+      // Local duplicate check
+      if (cont.querySelector(`.mangadexpp-controls input[entryid="${id}"]`)) return;
 
       const controls = createControlsRow(id);
 
-      // Try to insert after the title element
+      // ---- DETAIL PAGE: Insert after the stats / eye icon row ----
+      if (isDetailPage && id === pageMangaId) {
+        // Find the span with the eye icon (Area 1 – preferred)
+        const eyeSpan = document.querySelector('span.flex.items-center.opacity-40 svg.feather-eye');
+        const statsElement = eyeSpan ? eyeSpan.closest('span.flex.items-center') : null;
+
+        if (statsElement) {
+          statsElement.parentNode.insertBefore(controls, statsElement.nextSibling);
+          // Make buttons fit inline next to the stats
+          controls.style.display = "inline-flex";
+          controls.style.marginLeft = "12px";
+          controls.style.marginTop = "0";
+          return; // Success, done.
+        }
+
+        // Fallback: insert after the main <h1> title element
+        const titleHeader = document.querySelector('h1');
+        if (titleHeader) {
+          titleHeader.parentNode.insertBefore(controls, titleHeader.nextSibling);
+          return;
+        }
+      }
+
+      // ---- List / grid view: existing logic ----
+      const titleElement =
+        cont.querySelector(".chapter-feed__cover") ||
+        cont.querySelector(".chapter-feed__cover-image") ||
+        a;
+
       try {
         titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
       } catch {
-        // Fallback: try to find tags row
         const tagsRow = cont.querySelector(".flex.flex-wrap.gap-1.tags-row.tags.self-start");
         if (tagsRow) {
           tagsRow.parentNode.insertBefore(controls, tagsRow);
@@ -344,44 +350,50 @@
         }
       }
     } catch (e) {
-      // Silently fail
+      // silently fail
     }
   }
 
   function addControlsToAll() {
-    // Get all title links
     const titleLinks = document.querySelectorAll("a[href*='/title/']");
-
-    // Track which containers we've already processed
     const processedContainers = new Set();
 
-    // Process each link
+    const isDetailPage = window.location.pathname.startsWith("/title/");
+    const pageMangaId = isDetailPage ? extractIdFromHref(window.location.pathname) : null;
+    let mainDetailInjected = false;
+
     titleLinks.forEach(a => {
-  // Skip navigation, headers, and Titles sidebar
-  if (
-    a.closest("nav") ||
-    a.closest("header") ||
-    a.closest(".mangadexpp-settings-container") ||
-    isInTitlesSidebar(a)
-  ) return;
+      if (
+        a.closest("nav") ||
+        a.closest("header") ||
+        a.closest(".mangadexpp-settings-container") ||
+        isInTitlesSidebar(a)
+      ) return;
+
+      const id = extractIdFromHref(a.getAttribute("href") || a.href || "");
+
+      // On detail page skip if we already injected for the main manga
+      if (isDetailPage && id === pageMangaId) {
+        if (mainDetailInjected || document.querySelector(`.mangadexpp-controls input[entryid="${id}"]`)) {
+          mainDetailInjected = true;
+          return;
+        }
+      }
 
       const cont = getCandidateContainerForAnchor(a);
-      if (!cont) return;
-
-      // Skip if we've already processed this container
-      if (processedContainers.has(cont)) {
-        return;
-      }
+      if (!cont || processedContainers.has(cont)) return;
 
       insertControlsUnderTitleForAnchor(a);
       processedContainers.add(cont);
+
+      if (isDetailPage && id === pageMangaId) mainDetailInjected = true;
     });
   }
 
   /* ================ FEED UNREAD DETECTION (Hide-All-Read) ================ */
   function hasUnreadChaptersInFeedContainer(container) {
     const list = container.querySelector(".chapter-feed__chapters-list");
-    if (!list) return null; // can't tell
+    if (!list) return null;
     const unread = list.querySelector(".readMarker:not(.opacity-40)");
     return !!unread;
   }
@@ -395,7 +407,7 @@
         return;
       }
       const unread = hasUnreadChaptersInFeedContainer(cont);
-      if (unread === null) return; // skip containers we can't determine
+      if (unread === null) return;
       const allRead = unread === false;
       if (allRead) { cont.style.display = "none"; cont.setAttribute("feed-allread-hide", "true"); }
       else { if (cont.hasAttribute("feed-allread-hide")) { cont.removeAttribute("feed-allread-hide"); cont.style.display = ""; } }
@@ -423,7 +435,6 @@
   }
 
   function applyFilters() {
-    // hide duplicate top control bars
     document.querySelectorAll(".controls").forEach((c, i) => { if (i > 0) c.style.display = "none"; });
 
     document.querySelectorAll(".mangadexpp-controls").forEach(row => {
@@ -444,7 +455,6 @@
 
       if (!cont) return;
 
-      // Never hide content on title detail pages
       if (cont.closest(".layout-container")) {
         syncColors(row, flag);
         cont.style.display = "";
@@ -460,11 +470,10 @@
       syncColors(row, flag);
     });
 
-    // apply feed-only hide-all-read (chapter-marker based)
     hideAllReadFeed();
   }
 
-  /* ================ TOP CONTROLS (no duplicates) ================ */
+  /* ================ TOP CONTROLS ================ */
   function addTopControls() {
     const allControls = document.querySelectorAll(".controls");
     if (!allControls || allControls.length === 0) return;
@@ -495,7 +504,6 @@
         if (typeof cb === "function") cb();
       });
 
-      // Add hover effect to match
       b.addEventListener("mouseenter", () => {
         b.style.opacity = "0.9";
         b.style.transform = "translateY(-1px)";
@@ -524,21 +532,18 @@
     applyFilters();
   }
 
-  // Optimized scheduling with debouncing and throttling
   let scheduled = false;
   let lastRunTime = 0;
-  const MIN_RUN_INTERVAL = 100; // Minimum 100ms between runs
-  const DEBOUNCE_DELAY = 50; // Wait 50ms after last mutation before running
+  const MIN_RUN_INTERVAL = 100;
+  const DEBOUNCE_DELAY = 50;
 
   let debounceTimer = null;
   let mutationCount = 0;
-  const MAX_MUTATIONS_BEFORE_IMMEDIATE = 10; // If many mutations happen, run immediately
+  const MAX_MUTATIONS_BEFORE_IMMEDIATE = 10;
 
   function scheduleRun() {
-    // Count this mutation
     mutationCount++;
 
-    // Clear any existing debounce timer
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
@@ -546,7 +551,6 @@
     const now = Date.now();
     const timeSinceLastRun = now - lastRunTime;
 
-    // If we've had many mutations in quick succession, run immediately
     if (mutationCount >= MAX_MUTATIONS_BEFORE_IMMEDIATE) {
       if (!scheduled) {
         scheduled = true;
@@ -560,7 +564,6 @@
       return;
     }
 
-    // If enough time has passed since last run, schedule immediately
     if (timeSinceLastRun >= MIN_RUN_INTERVAL && !scheduled) {
       scheduled = true;
       mutationCount = 0;
@@ -572,7 +575,6 @@
       return;
     }
 
-    // Otherwise, debounce and wait for mutations to settle
     debounceTimer = setTimeout(() => {
       if (!scheduled) {
         scheduled = true;
@@ -586,47 +588,32 @@
     }, DEBOUNCE_DELAY);
   }
 
-  // Optimized MutationObserver configuration
   const observer = new MutationObserver((mutations) => {
-    // Check if mutations are relevant (add nodes or change attributes)
     const hasRelevantMutations = mutations.some(mutation => {
-      // Check for added nodes
-      if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-        return true;
-      }
-
-      // Check for attribute changes on relevant elements
+      if (mutation.addedNodes && mutation.addedNodes.length > 0) return true;
       if (mutation.type === 'attributes') {
         const target = mutation.target;
-        // Only care about certain attributes or elements
         if (target.classList && (
           target.classList.contains('chapter-feed__container') ||
           target.classList.contains('manga-card') ||
           target.classList.contains('md-card') ||
           target.tagName === 'A'
-        )) {
-          return true;
-        }
+        )) return true;
       }
-
       return false;
     });
 
-    if (hasRelevantMutations) {
-      scheduleRun();
-    }
+    if (hasRelevantMutations) scheduleRun();
   });
 
-  // Start observing with optimized settings
   observer.observe(document.body, {
     childList: true,
     subtree: true,
     attributes: true,
     attributeFilter: ['class', 'href', 'style'],
-    characterData: false // Don't need text changes
+    characterData: false
   });
 
-  // Initial run
   scheduleRun();
 
 })();
