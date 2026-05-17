@@ -66,9 +66,9 @@
       for (const id of ids) {
         if (checked >= limit) break;
         const isValid = await this.validateMangaIdWithAPI(id);
-        if (isValid) {
+        if (isValid === true) {
           validCount++;
-        } else {
+        } else if (isValid === false) {
           invalidIds.push(id);
         }
         checked++;
