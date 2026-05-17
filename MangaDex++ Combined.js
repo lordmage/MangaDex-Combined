@@ -73,7 +73,7 @@
         }
         checked++;
         console.log(`[${checked}/${Math.min(limit, ids.length)}] ${id}: ${isValid ? "✓ VALID" : "✗ INVALID"}`);
-        await new Promise(r => setTimeout(r, 100)); // Rate limiting
+        await new Promise(r => setTimeout(r, 500)); // Rate limiting
       }
 
       alert(`Validation complete!\nValid: ${validCount}\nInvalid: ${invalidIds.length}\nChecked: ${checked}/${ids.length}\n\nInvalid IDs:\n${invalidIds.join('\n') || 'None'}`);
