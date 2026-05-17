@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.6.3
-// @version      2.6.3
+// @name         MangaDex++ Enhanced v2.6.4
+// @version      2.6.4
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
-// @description  Read / Ignore / Clear buttons on every manga card - Optimized performance
+// @description  Read / Ignore / Clear buttons on every manga card - Optimized performance + API validation
 // @author       @ Theo1996, MangaDexPP, patched by Workik
 // @homepageURL  https://github.com/lordmage/MangaDex-Combined
 // @updateURL    http://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
@@ -32,10 +32,116 @@
 
   const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
+  /* ================ API HELPERS ================ */
+  const MangaDexAPI = {
+    baseURL: "https://api.mangadex.org",
+    
+    async validateMangaIdWithAPI(mangaId) {
+      try {
+        const response = await fetch(`${this.baseURL}/manga/${mangaId}`);
+        return response.status === 200;
+      } catch (e) {
+        console.error("Validation error:", e);
+        return false;
+      }
+    },
+
+    async batchValidateMangaIds(limit = 10) {
+      const mangadexppData = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
+        if (UUID_RE.test(key) && (value == "1" || value == "-1")) {
+          mangadexppData[key] = value;
+        }
+      }
+
+      const ids = Object.keys(mangadexppData);
+      console.log(`Validating ${ids.length} manga IDs...`);
+      
+      let validCount = 0;
+      let invalidIds = [];
+      let checked = 0;
+
+      for (const id of ids) {
+        if (checked >= limit) break;
+        const isValid = await this.validateMangaIdWithAPI(id);
+        if (isValid) {
+          validCount++;
+        } else {
+          invalidIds.push(id);
+        }
+        checked++;
+        console.log(`[${checked}/${Math.min(limit, ids.length)}] ${id}: ${isValid ? "✓ VALID" : "✗ INVALID"}`);
+        await new Promise(r => setTimeout(r, 100)); // Rate limiting
+      }
+
+      alert(`Validation complete!\nValid: ${validCount}\nInvalid: ${invalidIds.length}\nChecked: ${checked}/${ids.length}\n\nInvalid IDs:\n${invalidIds.join('\n') || 'None'}`);
+      return { validCount, invalidIds, checked };
+    },
+
+    async getMangaDetails(mangaId) {
+      try {
+        const response = await fetch(`${this.baseURL}/manga/${mangaId}`);
+        const data = await response.json();
+        if (data.data) {
+          console.log("Manga Details:", data.data.attributes);
+          return data.data;
+        }
+      } catch (e) {
+        console.error("Failed to get manga details:", e);
+      }
+    },
+
+    async getMangaFeed(mangaId, limit = 5) {
+      try {
+        const response = await fetch(`${this.baseURL}/manga/${mangaId}/feed?translatedLanguage[]=en&limit=${limit}`);
+        const data = await response.json();
+        if (data.data) {
+          console.log(`Found ${data.data.length} chapters:`, data.data);
+          return data.data;
+        }
+      } catch (e) {
+        console.error("Failed to get manga feed:", e);
+      }
+    },
+
+    async searchManga(title, limit = 5) {
+      try {
+        const response = await fetch(`${this.baseURL}/manga?title=${encodeURIComponent(title)}&limit=${limit}`);
+        const data = await response.json();
+        if (data.data) {
+          console.log(`Found ${data.data.length} results for "${title}":`, data.data);
+          return data.data;
+        }
+      } catch (e) {
+        console.error("Search failed:", e);
+      }
+    },
+
+    async cleanupInvalidMangaIds() {
+      const result = await this.batchValidateMangaIds(100);
+      if (result.invalidIds.length > 0) {
+        const confirmDelete = confirm(`Delete ${result.invalidIds.length} invalid entries?`);
+        if (confirmDelete) {
+          result.invalidIds.forEach(id => localStorage.removeItem(id));
+          alert(`Deleted ${result.invalidIds.length} invalid entries.`);
+          console.log("Cleanup complete:", result.invalidIds);
+        }
+      } else {
+        alert("All entries are valid!");
+      }
+    }
+  };
+
+  // Expose API to global scope for console access
+  window.MangaDexAPI = MangaDexAPI;
+
   /* ================ UTILITIES ================ */
-    function isInTitlesSidebar(el) {
-  return !!el.closest("#section-Titles");
-}
+  function isInTitlesSidebar(el) {
+    return !!el.closest("#section-Titles");
+  }
+  
   function extractIdFromHref(href) {
     if (!href) return null;
 
@@ -165,13 +271,14 @@
     menu.style.border = "1px solid #333";
     menu.style.borderRadius = "6px";
     menu.style.zIndex = "999999";
-    menu.style.minWidth = "200px";
+    menu.style.minWidth = "220px";
     menu.style.padding = "8px";
     menu.style.boxSizing = "border-box";
     menu.style.color = "#eee";
 
     menu.addEventListener("click", e => e.stopPropagation());
 
+    // Data section
     const dataTitle = document.createElement("div");
     dataTitle.textContent = "Data";
     dataTitle.style.fontWeight = "700";
@@ -188,9 +295,94 @@
     const imBtn = document.createElement("button");
     imBtn.textContent = "Import Data";
     imBtn.style.width = "100%";
-    imBtn.style.marginBottom = "6px";
+    imBtn.style.marginBottom = "12px";
     imBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); importLocalStorage(); });
     menu.appendChild(imBtn);
+
+    // API Validation section
+    const apiTitle = document.createElement("div");
+    apiTitle.textContent = "API Validation";
+    apiTitle.style.fontWeight = "700";
+    apiTitle.style.marginBottom = "6px";
+    apiTitle.style.borderTop = "1px solid #444";
+    apiTitle.style.paddingTop = "8px";
+    menu.appendChild(apiTitle);
+
+    const validateBtn = document.createElement("button");
+    validateBtn.textContent = "Validate All IDs";
+    validateBtn.style.width = "100%";
+    validateBtn.style.marginBottom = "6px";
+    validateBtn.style.fontSize = "12px";
+    validateBtn.title = "Checks first 100 manga IDs against MangaDex API";
+    validateBtn.addEventListener("click", e => { 
+      e.preventDefault(); 
+      e.stopPropagation(); 
+      menu.style.display = "none";
+      console.log("Starting validation...");
+      MangaDexAPI.batchValidateMangaIds(100);
+    });
+    menu.appendChild(validateBtn);
+
+    const cleanupBtn = document.createElement("button");
+    cleanupBtn.textContent = "Cleanup Invalid IDs";
+    cleanupBtn.style.width = "100%";
+    cleanupBtn.style.marginBottom = "6px";
+    cleanupBtn.style.fontSize = "12px";
+    cleanupBtn.title = "Remove invalid manga IDs from storage";
+    cleanupBtn.addEventListener("click", e => { 
+      e.preventDefault(); 
+      e.stopPropagation(); 
+      menu.style.display = "none";
+      console.log("Starting cleanup...");
+      MangaDexAPI.cleanupInvalidMangaIds();
+    });
+    menu.appendChild(cleanupBtn);
+
+    const searchBtn = document.createElement("button");
+    searchBtn.textContent = "Search Manga (Demo)";
+    searchBtn.style.width = "100%";
+    searchBtn.style.marginBottom = "6px";
+    searchBtn.style.fontSize = "12px";
+    searchBtn.title = "Example: Search for 'Naruto' - check console";
+    searchBtn.addEventListener("click", e => { 
+      e.preventDefault(); 
+      e.stopPropagation(); 
+      menu.style.display = "none";
+      const query = prompt("Enter manga title to search:", "Naruto");
+      if (query) {
+        console.log(`Searching for "${query}"...`);
+        MangaDexAPI.searchManga(query, 5);
+      }
+    });
+    menu.appendChild(searchBtn);
+
+    const consoleBtn = document.createElement("button");
+    consoleBtn.textContent = "Console Commands Help";
+    consoleBtn.style.width = "100%";
+    consoleBtn.style.marginBottom = "6px";
+    consoleBtn.style.fontSize = "12px";
+    consoleBtn.style.backgroundColor = "#333";
+    consoleBtn.addEventListener("click", e => { 
+      e.preventDefault(); 
+      e.stopPropagation(); 
+      alert(
+        "Available Console Commands:\n\n" +
+        "window.MangaDexAPI.validateMangaIdWithAPI('UUID')\n" +
+        "  → Check if a single manga ID is valid\n\n" +
+        "window.MangaDexAPI.batchValidateMangaIds(100)\n" +
+        "  → Validate up to 100 stored IDs\n\n" +
+        "window.MangaDexAPI.cleanupInvalidMangaIds()\n" +
+        "  → Remove invalid IDs from storage\n\n" +
+        "window.MangaDexAPI.searchManga('title', 5)\n" +
+        "  → Search for manga by title\n\n" +
+        "window.MangaDexAPI.getMangaDetails('UUID')\n" +
+        "  → Get metadata for a manga\n\n" +
+        "window.MangaDexAPI.getMangaFeed('UUID', 5)\n" +
+        "  → Get chapter list for a manga\n\n" +
+        "Check browser console for detailed output."
+      );
+    });
+    menu.appendChild(consoleBtn);
 
     document.addEventListener("click", e => {
       if (!menu.contains(e.target) && e.target !== btn) {
