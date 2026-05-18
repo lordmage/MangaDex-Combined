@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         MangaDex++ Enhanced v2.6.2 (with DataCleaner trigger)
-// @version      2.6.2-DC
+// @version      2.6.3-DC
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
 // @description  Read / Ignore / Clear buttons on every manga card - Optimized performance + trigger for DataCleaner
@@ -317,64 +317,75 @@
 
   function insertControlsUnderTitleForAnchor(a) {
     try {
-      if (a.closest(".mangadexpp-controls")) return;
+        // Abort if this anchor or its parent already has controls
+        if (a.closest(".mangadexpp-controls")) return;
 
-      const href = a.getAttribute("href") || a.href || "";
-      const id = extractIdFromHref(href);
-      if (!id) return;
+        // Extract manga ID from the `href` attribute of the anchor
+        const href = a.getAttribute("href") || a.href || "";
+        const id = extractIdFromHref(href);
+        if (!id) return; // Skip if no valid ID found
 
-      const cont = getCandidateContainerForAnchor(a);
-      if (!cont) return;
+        // Get the container for the anchor
+        const cont = getCandidateContainerForAnchor(a);
+        if (!cont) return; // Skip if no valid container found
 
-      const existingControls = cont.querySelector(`.mangadexpp-controls input[entryid="${id}"]`);
-      if (existingControls) {
+        // Prevent duplicate controls in the same container
+const existingControls = cont.querySelector(".mangadexpp-controls");
+if (existingControls) return;
+
+// Extra protection for title detail pages
+const layoutContainer = cont.closest(".layout-container");
+if (layoutContainer) {
+    if (layoutContainer.dataset.mdppControlsInjected === "true") {
         return;
-      }
-
-      const titleElement =
-                          cont.querySelector(".chapter-feed__cover") ||
-                          cont.querySelector(".chapter-feed__cover-image") ||
-                          a;
-
-      const controls = createControlsRow(id);
-
-      try {
-        titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
-      } catch {
-        const tagsRow = cont.querySelector(".flex.flex-wrap.gap-1.tags-row.tags.self-start");
-        if (tagsRow) {
-          tagsRow.parentNode.insertBefore(controls, tagsRow);
-        } else {
-          cont.appendChild(controls);
-        }
-      }
-    } catch (e) {
-      // Silently fail
     }
-  }
+    layoutContainer.dataset.mdppControlsInjected = "true";
+}
+        // Narrow the insertion target - look for specific elements within the container
+        const titleElement =
+            cont.querySelector(".chapter-feed__cover") || // Chapters feed cover
+            cont.querySelector(".chapter-feed__cover-image") || // Chapters feed cover image
+            cont.querySelector("a[data-v-58880355]") || // Preferred explicit anchor for controls
+            a; // Fallback to the anchor itself
 
-  function addControlsToAll() {
-    const titleLinks = document.querySelectorAll("a[href*='/title/']");
+        // Create the controls for this manga ID
+        const controls = createControlsRow(id);
+
+        // Insert controls after the desired element
+        if (titleElement && titleElement.parentNode) {
+            titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
+        } else {
+            // Fallbacks for rare cases when no valid `titleElement` is found
+            const tagsRow = cont.querySelector(".flex.flex-wrap.gap-1.tags-row.tags.self-start");
+            if (tagsRow) {
+                tagsRow.parentNode.insertBefore(controls, tagsRow);
+            } else {
+                cont.appendChild(controls); // Append to container as last resort
+            }
+        }
+    } catch (e) {
+        console.error("Failed to insert controls:", e); // Log failures for debugging
+    }
+}
+ function addControlsToAll() {
+    const titleLinks = document.querySelectorAll("a[href*='/title/']"); // Find all potentially valid title links
     const processedContainers = new Set();
 
     titleLinks.forEach(a => {
-      if (
-        a.closest("nav") ||
-        a.closest("header") ||
-        a.closest(".mangadexpp-settings-container") ||
-        isInTitlesSidebar(a)
-      ) return;
+        if (
+            a.closest("nav") ||
+            a.closest("header") ||
+            a.closest(".mangadexpp-settings-container") ||
+            isInTitlesSidebar(a)
+        ) return; // Skip irrelevant areas
 
-      const cont = getCandidateContainerForAnchor(a);
-      if (!cont) return;
-      if (processedContainers.has(cont)) {
-        return;
-      }
+        const cont = getCandidateContainerForAnchor(a);
+        if (!cont || processedContainers.has(cont)) return; // Skip already processed containers
 
-      insertControlsUnderTitleForAnchor(a);
-      processedContainers.add(cont);
+        insertControlsUnderTitleForAnchor(a); // Call the refined insertion function
+        processedContainers.add(cont); // Mark container as processed
     });
-  }
+}
 
   /* ================ FEED UNREAD DETECTION (Hide-All-Read) ================ */
   function hasUnreadChaptersInFeedContainer(container) {
