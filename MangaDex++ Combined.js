@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.6.3
-// @version      2.6.3
+// @name         MangaDex++ Enhanced v2.6.2 (with DataCleaner trigger)
+// @version      2.6.2-DC
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
-// @description  Read / Ignore / Clear buttons on every manga card - Optimized performance
+// @description  Read / Ignore / Clear buttons on every manga card - Optimized performance + trigger for DataCleaner
 // @author       @ Theo1996, MangaDexPP, patched by Workik
 // @homepageURL  https://github.com/lordmage/MangaDex-Combined
 // @updateURL    http://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
@@ -11,6 +11,7 @@
 // @match        https://mangadex.org/*
 // @icon         https://icons.duckduckgo.com/ip2/www.mangadex.org.ico
 // @grant        none
+
 // ==/UserScript==
 
 (function () {
@@ -33,9 +34,9 @@
   const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
   /* ================ UTILITIES ================ */
-    function isInTitlesSidebar(el) {
-  return !!el.closest("#section-Titles");
-}
+  function isInTitlesSidebar(el) {
+    return !!el.closest("#section-Titles");
+  }
   function extractIdFromHref(href) {
     if (!href) return null;
 
@@ -45,17 +46,21 @@
 
     // Try to extract from URL path
     try {
+      // Parse URL
       const url = new URL(href);
       const pathParts = url.pathname.split('/');
 
+      // Look for 'title' in path and get next segment
       const titleIndex = pathParts.indexOf('title');
       if (titleIndex !== -1 && titleIndex + 1 < pathParts.length) {
         const potentialId = pathParts[titleIndex + 1];
+        // Return if it's not empty
         if (potentialId && potentialId.trim() !== '') {
           return potentialId;
         }
       }
 
+      // Fallback: look for any non-empty path segment that's not a common word
       const commonWords = ['title', 'chapter', 'manga', 'tag', 'group', 'user', 'settings', 'login', 'register'];
       for (const part of pathParts) {
         if (part && part.trim() !== '' && !commonWords.includes(part.toLowerCase())) {
@@ -63,18 +68,22 @@
         }
       }
     } catch (e) {
+      // If URL parsing fails, fall back to original logic but skip domains
       const parts = href.split("/");
       for (const p of parts) {
+        // Skip common domains and protocol parts
         if (p && p.length >= 1 && !p.includes('http') && !p.includes('www.') && !p.includes('.org') && !p.includes('.com')) {
           return p;
         }
       }
     }
+
     return null;
   }
 
   /* ================ EXPORT / IMPORT ================ */
   function isMangaDexPPKey(key, value) {
+    // Only allow UUID-formatted keys (manga IDs) with values "1" or "-1"
     return UUID_RE.test(key) && (value == "1" || value == "-1");
   }
 
@@ -84,6 +93,7 @@
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         const value = localStorage.getItem(key);
+        // Only export MangaDex++ manga status keys
         if (isMangaDexPPKey(key, value)) {
           mangadexppData[key] = value;
         }
@@ -118,6 +128,7 @@
           let importedCount = 0;
           let skippedCount = 0;
           Object.entries(parsed).forEach(([k, v]) => {
+            // Only import valid MangaDex++ keys
             if (isMangaDexPPKey(k, v)) {
               localStorage.setItem(k, v);
               importedCount++;
@@ -178,6 +189,23 @@
     dataTitle.style.marginBottom = "6px";
     menu.appendChild(dataTitle);
 
+    const cleanBtn = document.createElement("button");
+    cleanBtn.addEventListener("click", e => {
+  e.preventDefault();
+  e.stopPropagation();
+  setTimeout(() => {
+    try {
+      // Trigger Data Cleaner with a custom event
+      document.dispatchEvent(new CustomEvent('mangadexpp:run-datacleaner'));
+      alert('DataCleaner triggered. If nothing happens, ensure the DataCleaner userscript is installed and enabled.');
+    } catch (err) {
+      console.error('Failed to trigger DataCleaner', err);
+      alert('Failed to trigger DataCleaner — check console.');
+    }
+  }, 0);
+});
+    menu.appendChild(cleanBtn);
+
     const exBtn = document.createElement("button");
     exBtn.textContent = "Export Data";
     exBtn.style.width = "100%";
@@ -219,6 +247,7 @@
     row.style.justifyContent = "flex-start";
     row.style.flexDirection = "row";
 
+    // prevent navigation when clicking buttons
     row.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); return false; });
 
     function mk(label, cls, cb) {
@@ -249,6 +278,7 @@
         return false;
       });
 
+      // Add hover effect
       b.addEventListener("mouseenter", () => {
         b.style.opacity = "0.9";
         b.style.transform = "translateY(-1px)";
@@ -285,7 +315,6 @@
     );
   }
 
-  /* ================ ★ FIXED: INSERT ON DETAIL PAGE AFTER STATS ROW ================ */
   function insertControlsUnderTitleForAnchor(a) {
     try {
       if (a.closest(".mangadexpp-controls")) return;
@@ -294,50 +323,20 @@
       const id = extractIdFromHref(href);
       if (!id) return;
 
-      const isDetailPage = window.location.pathname.startsWith("/title/");
-      const pageMangaId = isDetailPage ? extractIdFromHref(window.location.pathname) : null;
-
-      // Global duplicate prevention on detail page
-      if (isDetailPage && id === pageMangaId) {
-        if (document.querySelector(`.mangadexpp-controls input[entryid="${id}"]`)) return;
-      }
-
       const cont = getCandidateContainerForAnchor(a);
       if (!cont) return;
 
-      // Local duplicate check
-      if (cont.querySelector(`.mangadexpp-controls input[entryid="${id}"]`)) return;
-
-      const controls = createControlsRow(id);
-
-      // ---- DETAIL PAGE: Insert after the stats / eye icon row ----
-      if (isDetailPage && id === pageMangaId) {
-        // Find the span with the eye icon (Area 1 – preferred)
-        const eyeSpan = document.querySelector('span.flex.items-center.opacity-40 svg.feather-eye');
-        const statsElement = eyeSpan ? eyeSpan.closest('span.flex.items-center') : null;
-
-        if (statsElement) {
-          statsElement.parentNode.insertBefore(controls, statsElement.nextSibling);
-          // Make buttons fit inline next to the stats
-          controls.style.display = "inline-flex";
-          controls.style.marginLeft = "12px";
-          controls.style.marginTop = "0";
-          return; // Success, done.
-        }
-
-        // Fallback: insert after the main <h1> title element
-        const titleHeader = document.querySelector('h1');
-        if (titleHeader) {
-          titleHeader.parentNode.insertBefore(controls, titleHeader.nextSibling);
-          return;
-        }
+      const existingControls = cont.querySelector(`.mangadexpp-controls input[entryid="${id}"]`);
+      if (existingControls) {
+        return;
       }
 
-      // ---- List / grid view: existing logic ----
       const titleElement =
-        cont.querySelector(".chapter-feed__cover") ||
-        cont.querySelector(".chapter-feed__cover-image") ||
-        a;
+                          cont.querySelector(".chapter-feed__cover") ||
+                          cont.querySelector(".chapter-feed__cover-image") ||
+                          a;
+
+      const controls = createControlsRow(id);
 
       try {
         titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
@@ -350,17 +349,13 @@
         }
       }
     } catch (e) {
-      // silently fail
+      // Silently fail
     }
   }
 
   function addControlsToAll() {
     const titleLinks = document.querySelectorAll("a[href*='/title/']");
     const processedContainers = new Set();
-
-    const isDetailPage = window.location.pathname.startsWith("/title/");
-    const pageMangaId = isDetailPage ? extractIdFromHref(window.location.pathname) : null;
-    let mainDetailInjected = false;
 
     titleLinks.forEach(a => {
       if (
@@ -370,23 +365,14 @@
         isInTitlesSidebar(a)
       ) return;
 
-      const id = extractIdFromHref(a.getAttribute("href") || a.href || "");
-
-      // On detail page skip if we already injected for the main manga
-      if (isDetailPage && id === pageMangaId) {
-        if (mainDetailInjected || document.querySelector(`.mangadexpp-controls input[entryid="${id}"]`)) {
-          mainDetailInjected = true;
-          return;
-        }
-      }
-
       const cont = getCandidateContainerForAnchor(a);
-      if (!cont || processedContainers.has(cont)) return;
+      if (!cont) return;
+      if (processedContainers.has(cont)) {
+        return;
+      }
 
       insertControlsUnderTitleForAnchor(a);
       processedContainers.add(cont);
-
-      if (isDetailPage && id === pageMangaId) mainDetailInjected = true;
     });
   }
 
@@ -473,7 +459,7 @@
     hideAllReadFeed();
   }
 
-  /* ================ TOP CONTROLS ================ */
+  /* ================ TOP CONTROLS (no duplicates) ================ */
   function addTopControls() {
     const allControls = document.querySelectorAll(".controls");
     if (!allControls || allControls.length === 0) return;
@@ -543,7 +529,6 @@
 
   function scheduleRun() {
     mutationCount++;
-
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
@@ -590,7 +575,9 @@
 
   const observer = new MutationObserver((mutations) => {
     const hasRelevantMutations = mutations.some(mutation => {
-      if (mutation.addedNodes && mutation.addedNodes.length > 0) return true;
+      if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+        return true;
+      }
       if (mutation.type === 'attributes') {
         const target = mutation.target;
         if (target.classList && (
@@ -598,12 +585,16 @@
           target.classList.contains('manga-card') ||
           target.classList.contains('md-card') ||
           target.tagName === 'A'
-        )) return true;
+        )) {
+          return true;
+        }
       }
       return false;
     });
 
-    if (hasRelevantMutations) scheduleRun();
+    if (hasRelevantMutations) {
+      scheduleRun();
+    }
   });
 
   observer.observe(document.body, {
