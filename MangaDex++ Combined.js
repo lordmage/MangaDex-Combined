@@ -1,23 +1,20 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.6.2 (with DataCleaner trigger)
-// @version      2.6.3-DC
+// @name         MangaDex++ Enhanced v2.6.3 (Strict ID Fix)
+// @version      2.6.3
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
-// @description  Read / Ignore / Clear buttons on every manga card - Optimized performance + trigger for DataCleaner
+// @description  Read / Ignore / Clear buttons on every manga card - Fixed UUID reset issues
 // @author       @ Theo1996, MangaDexPP, patched by Workik
-// @homepageURL  https://github.com/lordmage/MangaDex-Combined
-// @updateURL    http://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
-// @downloadURL  http://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
 // @match        https://mangadex.org/*
 // @icon         https://icons.duckduckgo.com/ip2/www.mangadex.org.ico
 // @grant        none
-
 // ==/UserScript==
 
 (function () {
   "use strict";
 
   /* ================= CONFIG / STATE ================= */
+  const STORAGE_PREFIX = "MDPP_"; // Prevents collisions with site data
   const READ_BUTTON_COLOR = "#13ab493d";
   const IGNORE_BUTTON_COLOR = "#ab13133d";
   const UNMARKED_BUTTON_COLOR = "#4242cd3d";
@@ -33,72 +30,59 @@
 
   const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
+  /* ================ STORAGE WRAPPER ================ */
+  // Migration: Move old raw UUID keys to namespaced keys
+  (function migrate() {
+    const keysToMigrate = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (UUID_RE.test(key) && !key.startsWith(STORAGE_PREFIX)) {
+        keysToMigrate.push(key);
+      }
+    }
+    if (keysToMigrate.length > 0) {
+      console.log(`MangaDex++: Migrating ${keysToMigrate.length} legacy entries...`);
+      keysToMigrate.forEach(k => {
+        const val = localStorage.getItem(k);
+        localStorage.setItem(STORAGE_PREFIX + k, val);
+        localStorage.removeItem(k);
+      });
+    }
+  })();
+
+  const db = {
+    get: (id) => localStorage.getItem(STORAGE_PREFIX + id),
+    set: (id, val) => localStorage.setItem(STORAGE_PREFIX + id, val),
+    remove: (id) => localStorage.removeItem(STORAGE_PREFIX + id),
+    getAll: () => {
+        const data = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith(STORAGE_PREFIX)) {
+                data[key.replace(STORAGE_PREFIX, "")] = localStorage.getItem(key);
+            }
+        }
+        return data;
+    }
+  };
+
   /* ================ UTILITIES ================ */
   function isInTitlesSidebar(el) {
     return !!el.closest("#section-Titles");
   }
+
   function extractIdFromHref(href) {
     if (!href) return null;
-
-    // First try UUID pattern
-    const m = href.match(UUID_RE);
-    if (m) return m[0];
-
-    // Try to extract from URL path
-    try {
-      // Parse URL
-      const url = new URL(href);
-      const pathParts = url.pathname.split('/');
-
-      // Look for 'title' in path and get next segment
-      const titleIndex = pathParts.indexOf('title');
-      if (titleIndex !== -1 && titleIndex + 1 < pathParts.length) {
-        const potentialId = pathParts[titleIndex + 1];
-        // Return if it's not empty
-        if (potentialId && potentialId.trim() !== '') {
-          return potentialId;
-        }
-      }
-
-      // Fallback: look for any non-empty path segment that's not a common word
-      const commonWords = ['title', 'chapter', 'manga', 'tag', 'group', 'user', 'settings', 'login', 'register'];
-      for (const part of pathParts) {
-        if (part && part.trim() !== '' && !commonWords.includes(part.toLowerCase())) {
-          return part;
-        }
-      }
-    } catch (e) {
-      // If URL parsing fails, fall back to original logic but skip domains
-      const parts = href.split("/");
-      for (const p of parts) {
-        // Skip common domains and protocol parts
-        if (p && p.length >= 1 && !p.includes('http') && !p.includes('www.') && !p.includes('.org') && !p.includes('.com')) {
-          return p;
-        }
-      }
-    }
-
-    return null;
+    // STRICT FIX: Only extract UUID if it follows the "/title/" path.
+    // This prevents accidental chapter-id or user-id grabbing.
+    const match = href.match(/\/title\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+    return match ? match[1] : null;
   }
 
   /* ================ EXPORT / IMPORT ================ */
-  function isMangaDexPPKey(key, value) {
-    // Only allow UUID-formatted keys (manga IDs) with values "1" or "-1"
-    return UUID_RE.test(key) && (value == "1" || value == "-1");
-  }
-
   function exportLocalStorage() {
     try {
-      const mangadexppData = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        const value = localStorage.getItem(key);
-        // Only export MangaDex++ manga status keys
-        if (isMangaDexPPKey(key, value)) {
-          mangadexppData[key] = value;
-        }
-      }
-      const data = JSON.stringify(mangadexppData, null, 2);
+      const data = JSON.stringify(db.getAll(), null, 2);
       const blob = new Blob([data], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -107,10 +91,8 @@
       a.click();
       a.remove();
       URL.revokeObjectURL(a.href);
-      console.log(`MangaDex++ exported ${Object.keys(mangadexppData).length} entries (auth tokens excluded)`);
     } catch (e) {
       console.error("Export failed", e);
-      alert("Export failed — see console.");
     }
   }
 
@@ -125,30 +107,18 @@
       r.onload = () => {
         try {
           const parsed = JSON.parse(r.result);
-          let importedCount = 0;
-          let skippedCount = 0;
           Object.entries(parsed).forEach(([k, v]) => {
-            // Only import valid MangaDex++ keys
-            if (isMangaDexPPKey(k, v)) {
-              localStorage.setItem(k, v);
-              importedCount++;
-            } else {
-              console.warn(`Skipped invalid key: ${k}=${v}`);
-              skippedCount++;
-            }
+            if (UUID_RE.test(k)) db.set(k, v);
           });
-          alert(`Import complete: ${importedCount} entries imported, ${skippedCount} invalid entries skipped.\nRefresh if needed.`);
-          console.log(`MangaDex++ import: ${importedCount} valid, ${skippedCount} skipped (auth tokens protected)`);
+          alert("Import complete. Refreshing...");
+          window.location.reload();
         } catch (err) {
-          console.error("Import failed", err);
           alert("Invalid JSON file.");
         }
       };
       r.readAsText(f);
     };
-    document.body.appendChild(input);
     input.click();
-    input.remove();
   }
 
   /* ================ SETTINGS COG ================ */
@@ -160,78 +130,32 @@
     const btn = document.createElement("input");
     btn.type = "button";
     btn.value = "⚙";
-    btn.title = "MangaDex++ Settings";
-    btn.style.padding = "0 0.8em";
-    btn.style.marginLeft = "6px";
-    btn.style.borderRadius = "4px";
-    btn.style.backgroundColor = SETTINGS_BUTTON_COLOR;
-    btn.style.cursor = "pointer";
+    btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
 
     const menu = document.createElement("div");
-    menu.style.display = "none";
-    menu.style.position = "absolute";
-    menu.style.top = "110%";
-    menu.style.left = "0";
-    menu.style.background = "#1a1a1a";
-    menu.style.border = "1px solid #333";
-    menu.style.borderRadius = "6px";
-    menu.style.zIndex = "999999";
-    menu.style.minWidth = "200px";
-    menu.style.padding = "8px";
-    menu.style.boxSizing = "border-box";
-    menu.style.color = "#eee";
+    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color: #eee;`;
 
-    menu.addEventListener("click", e => e.stopPropagation());
-
-    const dataTitle = document.createElement("div");
-    dataTitle.textContent = "Data";
-    dataTitle.style.fontWeight = "700";
-    dataTitle.style.marginBottom = "6px";
-    menu.appendChild(dataTitle);
-
-    const cleanBtn = document.createElement("button");
-    cleanBtn.addEventListener("click", e => {
-  e.preventDefault();
-  e.stopPropagation();
-  setTimeout(() => {
-    try {
-      // Trigger Data Cleaner with a custom event
-      document.dispatchEvent(new CustomEvent('mangadexpp:run-datacleaner'));
-      alert('DataCleaner triggered. If nothing happens, ensure the DataCleaner userscript is installed and enabled.');
-    } catch (err) {
-      console.error('Failed to trigger DataCleaner', err);
-      alert('Failed to trigger DataCleaner — check console.');
-    }
-  }, 0);
-});
-    menu.appendChild(cleanBtn);
+    menu.innerHTML = `<div style="font-weight:700; margin-bottom:6px;">MangaDex++ Data</div>`;
 
     const exBtn = document.createElement("button");
     exBtn.textContent = "Export Data";
-    exBtn.style.width = "100%";
-    exBtn.style.marginBottom = "6px";
-    exBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); exportLocalStorage(); });
-    menu.appendChild(exBtn);
+    exBtn.style.cssText = "width:100%; margin-bottom:6px; cursor:pointer;";
+    exBtn.onclick = exportLocalStorage;
 
     const imBtn = document.createElement("button");
     imBtn.textContent = "Import Data";
-    imBtn.style.width = "100%";
-    imBtn.style.marginBottom = "6px";
-    imBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); importLocalStorage(); });
+    imBtn.style.cssText = "width:100%; cursor:pointer;";
+    imBtn.onclick = importLocalStorage;
+
+    menu.appendChild(exBtn);
     menu.appendChild(imBtn);
 
-    document.addEventListener("click", e => {
-      if (!menu.contains(e.target) && e.target !== btn) {
-        menu.style.display = "none";
-      }
-    });
+    btn.onclick = (e) => {
+        e.stopPropagation();
+        menu.style.display = menu.style.display === "none" ? "block" : "none";
+    };
 
-    btn.addEventListener("click", e => {
-      e.preventDefault();
-      e.stopPropagation();
-      menu.style.display = menu.style.display === "block" ? "none" : "block";
-    });
-
+    document.addEventListener("click", () => menu.style.display = "none");
     wrapper.appendChild(btn);
     wrapper.appendChild(menu);
     return wrapper;
@@ -241,381 +165,137 @@
   function createControlsRow(entryID) {
     const row = document.createElement("div");
     row.className = "mangadexpp-controls";
-    row.style.marginTop = "4px";
-    row.style.display = "flex";
-    row.style.gap = "4px";
-    row.style.justifyContent = "flex-start";
-    row.style.flexDirection = "row";
+    row.dataset.entryid = entryID;
+    row.style.cssText = "margin-top: 4px; display: flex; gap: 4px; justify-content: flex-start;";
 
-    // prevent navigation when clicking buttons
-    row.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); return false; });
-
-    function mk(label, cls, cb) {
+    function mk(label, cls, color, action) {
       const b = document.createElement("input");
       b.type = "button";
       b.value = label;
       b.className = cls;
-      b.setAttribute("entryid", entryID);
-      b.style.padding = "2px 6px";
-      b.style.borderRadius = "3px";
-      b.style.cursor = "pointer";
-      b.style.background = "transparent";
-      b.style.fontSize = "14px";
-      b.style.minWidth = "70px";
-      b.style.height = "28px";
-      b.style.lineHeight = "24px";
-      b.style.boxSizing = "border-box";
-      b.style.whiteSpace = "nowrap";
-      b.style.fontFamily = "inherit";
-      b.style.fontWeight = "500";
-      b.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-      b.style.transition = "all 0.15s ease";
-      b.addEventListener("click", e => {
+      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); transition: all 0.1s ease; color: white;`;
+
+      b.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        cb(entryID);
+        action();
         applyFilters();
-        return false;
-      });
-
-      // Add hover effect
-      b.addEventListener("mouseenter", () => {
-        b.style.opacity = "0.9";
-        b.style.transform = "translateY(-1px)";
-        b.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
-      });
-      b.addEventListener("mouseleave", () => {
-        b.style.opacity = "1";
-        b.style.transform = "translateY(0)";
-        b.style.boxShadow = "none";
-      });
-
+      };
       return b;
     }
 
-    row.appendChild(mk("Read", "mangadexpp-read", id => localStorage.setItem(id, "1")));
-    row.appendChild(mk("Ignore", "mangadexpp-ignore", id => localStorage.setItem(id, "-1")));
-    row.appendChild(mk("Clear", "mangadexpp-clear", id => localStorage.removeItem(id)));
+    row.appendChild(mk("Read", "mangadexpp-read", READ_BUTTON_COLOR, () => db.set(entryID, "1")));
+    row.appendChild(mk("Ignore", "mangadexpp-ignore", IGNORE_BUTTON_COLOR, () => db.set(entryID, "-1")));
+    row.appendChild(mk("Clear", "mangadexpp-clear", null, () => db.remove(entryID)));
 
     return row;
   }
 
-  /* ================ INSERTION HELPERS ================ */
+  /* ================ CORE LOGIC ================ */
   function getCandidateContainerForAnchor(a) {
-    return (
-      a.closest(".chapter-feed__container") ||
-      a.closest(".chapter-feed__cover") ||
-      a.closest(".manga-card") ||
-      a.closest(".md-card") ||
-      a.closest(".group.md-card") ||
-      a.closest(".card") ||
-      a.closest("li") ||
-      a.closest("article") ||
-      a.parentElement
-    );
+    return a.closest(".chapter-feed__container, .manga-card, .md-card, .group.md-card, .card, li, article") || a.parentElement;
   }
 
-  function insertControlsUnderTitleForAnchor(a) {
-    try {
-        // Abort if this anchor or its parent already has controls
-        if (a.closest(".mangadexpp-controls")) return;
-
-        // Extract manga ID from the `href` attribute of the anchor
-        const href = a.getAttribute("href") || a.href || "";
-        const id = extractIdFromHref(href);
-        if (!id) return; // Skip if no valid ID found
-
-        // Get the container for the anchor
-        const cont = getCandidateContainerForAnchor(a);
-        if (!cont) return; // Skip if no valid container found
-
-        // Prevent duplicate controls in the same container
-const existingControls = cont.querySelector(".mangadexpp-controls");
-if (existingControls) return;
-
-// Extra protection for title detail pages
-const layoutContainer = cont.closest(".layout-container");
-if (layoutContainer) {
-    if (layoutContainer.dataset.mdppControlsInjected === "true") {
-        return;
-    }
-    layoutContainer.dataset.mdppControlsInjected = "true";
-}
-        // Narrow the insertion target - look for specific elements within the container
-        const titleElement =
-            cont.querySelector(".chapter-feed__cover") || // Chapters feed cover
-            cont.querySelector(".chapter-feed__cover-image") || // Chapters feed cover image
-            cont.querySelector("a[data-v-58880355]") || // Preferred explicit anchor for controls
-            a; // Fallback to the anchor itself
-
-        // Create the controls for this manga ID
-        const controls = createControlsRow(id);
-
-        // Insert controls after the desired element
-        if (titleElement && titleElement.parentNode) {
-            titleElement.parentNode.insertBefore(controls, titleElement.nextSibling);
-        } else {
-            // Fallbacks for rare cases when no valid `titleElement` is found
-            const tagsRow = cont.querySelector(".flex.flex-wrap.gap-1.tags-row.tags.self-start");
-            if (tagsRow) {
-                tagsRow.parentNode.insertBefore(controls, tagsRow);
-            } else {
-                cont.appendChild(controls); // Append to container as last resort
-            }
-        }
-    } catch (e) {
-        console.error("Failed to insert controls:", e); // Log failures for debugging
-    }
-}
- function addControlsToAll() {
-    const titleLinks = document.querySelectorAll("a[href*='/title/']"); // Find all potentially valid title links
-    const processedContainers = new Set();
+  function addControlsToAll() {
+    const titleLinks = document.querySelectorAll("a[href*='/title/']");
+    const processed = new Set();
 
     titleLinks.forEach(a => {
-        if (
-            a.closest("nav") ||
-            a.closest("header") ||
-            a.closest(".mangadexpp-settings-container") ||
-            isInTitlesSidebar(a)
-        ) return; // Skip irrelevant areas
+      if (a.closest("nav, header, .mangadexpp-settings-container") || isInTitlesSidebar(a)) return;
 
-        const cont = getCandidateContainerForAnchor(a);
-        if (!cont || processedContainers.has(cont)) return; // Skip already processed containers
+      const cont = getCandidateContainerForAnchor(a);
+      if (!cont || processed.has(cont) || cont.querySelector(".mangadexpp-controls")) return;
 
-        insertControlsUnderTitleForAnchor(a); // Call the refined insertion function
-        processedContainers.add(cont); // Mark container as processed
-    });
-}
+      const id = extractIdFromHref(a.href);
+      if (!id) return;
 
-  /* ================ FEED UNREAD DETECTION (Hide-All-Read) ================ */
-  function hasUnreadChaptersInFeedContainer(container) {
-    const list = container.querySelector(".chapter-feed__chapters-list");
-    if (!list) return null;
-    const unread = list.querySelector(".readMarker:not(.opacity-40)");
-    return !!unread;
-  }
-
-  function hideAllReadFeed() {
-    if (!DOES_HIDE_ALL_READ) return;
-    document.querySelectorAll(".chapter-feed__container").forEach(cont => {
-      if (cont.closest(".layout-container")) { cont.style.display = ""; return; }
-      if (!hideAllRead) {
-        if (cont.hasAttribute("feed-allread-hide")) { cont.removeAttribute("feed-allread-hide"); cont.style.display = ""; }
-        return;
+      const titleEl = cont.querySelector(".chapter-feed__cover, .chapter-feed__cover-image, a[data-v-58880355]") || a;
+      if (titleEl && titleEl.parentNode) {
+        titleEl.parentNode.insertBefore(createControlsRow(id), titleEl.nextSibling);
+        processed.add(cont);
       }
-      const unread = hasUnreadChaptersInFeedContainer(cont);
-      if (unread === null) return;
-      const allRead = unread === false;
-      if (allRead) { cont.style.display = "none"; cont.setAttribute("feed-allread-hide", "true"); }
-      else { if (cont.hasAttribute("feed-allread-hide")) { cont.removeAttribute("feed-allread-hide"); cont.style.display = ""; } }
     });
-  }
-
-  /* ================ FILTER LOGIC ================ */
-  function syncColors(row, flag) {
-    try {
-      const readBtn = row.querySelector(".mangadexpp-read");
-      const ignoreBtn = row.querySelector(".mangadexpp-ignore");
-      if (readBtn) readBtn.style.background = flag === "1" ? READ_BUTTON_COLOR : "transparent";
-      if (ignoreBtn) ignoreBtn.style.background = flag === "-1" ? IGNORE_BUTTON_COLOR : "transparent";
-    } catch (e) {}
-  }
-
-  function isMangaContainer(cont) {
-    if (!cont) return false;
-    return !!(
-      cont.closest(".chapter-feed__container") ||
-      cont.closest(".manga-card") ||
-      cont.closest(".md-card") ||
-      cont.closest(".group.md-card")
-    );
   }
 
   function applyFilters() {
-    document.querySelectorAll(".controls").forEach((c, i) => { if (i > 0) c.style.display = "none"; });
+    const data = db.getAll(); // Bulk read to memory
 
     document.querySelectorAll(".mangadexpp-controls").forEach(row => {
-      const inp = row.querySelector("input[entryid]");
-      if (!inp) return;
-      const id = inp.getAttribute("entryid");
-      const flag = localStorage.getItem(id);
-
-      const cont =
-        row.closest(".chapter-feed__container") ||
-        row.closest(".manga-card") ||
-        row.closest(".md-card") ||
-        row.closest(".group.md-card") ||
-        row.closest(".card") ||
-        row.closest("li") ||
-        row.closest("article") ||
-        row.parentElement;
+      const id = row.dataset.entryid;
+      const flag = data[id];
+      const cont = getCandidateContainerForAnchor(row);
 
       if (!cont) return;
 
+      // Sync button colors
+      row.querySelector(".mangadexpp-read").style.background = flag === "1" ? READ_BUTTON_COLOR : "transparent";
+      row.querySelector(".mangadexpp-ignore").style.background = flag === "-1" ? IGNORE_BUTTON_COLOR : "transparent";
+
       if (cont.closest(".layout-container")) {
-        syncColors(row, flag);
-        cont.style.display = "";
+        cont.style.display = ""; // Never hide on the detail page itself
         return;
       }
 
       let shouldHide = false;
       if (flag === "1") shouldHide = hideRead;
       else if (flag === "-1") shouldHide = hideIgnore;
-      else shouldHide = hideUnmarked && isMangaContainer(cont);
+      else shouldHide = hideUnmarked;
 
       cont.style.display = shouldHide ? "none" : "";
-      syncColors(row, flag);
     });
 
-    hideAllReadFeed();
+    if (DOES_HIDE_ALL_READ) hideAllReadFeed();
   }
 
-  /* ================ TOP CONTROLS (no duplicates) ================ */
+  function hideAllReadFeed() {
+    document.querySelectorAll(".chapter-feed__container").forEach(cont => {
+      if (cont.closest(".layout-container")) return;
+      const list = cont.querySelector(".chapter-feed__chapters-list");
+      if (!list) return;
+
+      const hasUnread = !!list.querySelector(".readMarker:not(.opacity-40)");
+      cont.style.display = (hideAllRead && !hasUnread) ? "none" : (cont.style.display === "none" ? "none" : "");
+    });
+  }
+
+  /* ================ TOP BAR CONTROLS ================ */
   function addTopControls() {
-    const allControls = document.querySelectorAll(".controls");
-    if (!allControls || allControls.length === 0) return;
-    const controls = allControls[0];
-    if (controls.classList.contains("mangadexpp-has-controls")) return;
-    controls.classList.add("mangadexpp-has-controls");
-    for (let i = 1; i < allControls.length; i++) try { allControls[i].style.display = "none"; } catch(e) {}
-    function mk(label, get, set, color, cb) {
+    const controls = document.querySelector(".controls");
+    if (!controls || controls.classList.contains("mdpp-ready")) return;
+    controls.classList.add("mdpp-ready");
+
+    function mk(label, get, set, color) {
       const b = document.createElement("input");
       b.type = "button"; b.value = label;
-      b.style.padding = "0 0.8em";
-      b.style.marginLeft = "4px";
-      b.style.borderRadius = "3px";
-      b.style.cursor = "pointer"; b.style.backgroundColor = get() ? color : "transparent";
-      b.style.fontSize = "14px";
-      b.style.height = "28px";
-      b.style.lineHeight = "28px";
-      b.style.boxSizing = "border-box";
-      b.style.fontFamily = "inherit";
-      b.style.fontWeight = "500";
-      b.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-      b.style.transition = "all 0.15s ease";
-      b.addEventListener("click", () => {
-        const v = !get();
-        set(v);
-        b.style.backgroundColor = v ? color : "transparent";
+      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white; transition: background 0.2s;`;
+      b.style.backgroundColor = get() ? color : "transparent";
+
+      b.onclick = () => {
+        set(!get());
+        b.style.backgroundColor = get() ? color : "transparent";
         applyFilters();
-        if (typeof cb === "function") cb();
-      });
-
-      b.addEventListener("mouseenter", () => {
-        b.style.opacity = "0.9";
-        b.style.transform = "translateY(-1px)";
-        b.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
-      });
-      b.addEventListener("mouseleave", () => {
-        b.style.opacity = "1";
-        b.style.transform = "translateY(0)";
-        b.style.boxShadow = "none";
-      });
-
+      };
       return b;
     }
-    controls.appendChild(mk("Toggle Read", () => hideRead, v => hideRead = v, READ_BUTTON_COLOR));
-    controls.appendChild(mk("Toggle Ignore", () => hideIgnore, v => hideIgnore = v, IGNORE_BUTTON_COLOR));
-    controls.appendChild(mk("Toggle Unmarked", () => hideUnmarked, v => hideUnmarked = v, UNMARKED_BUTTON_COLOR));
-    if (DOES_HIDE_ALL_READ) controls.appendChild(mk("Hide All Read?", () => hideAllRead, v => hideAllRead = v, HIDE_ALL_READ_BUTTON_COLOR, hideAllReadFeed));
-    const cog = createSettingsCog(); cog.classList.add("mangadexpp-settings-cog");
-    controls.appendChild(cog);
+
+    controls.appendChild(mk("Hide Read", () => hideRead, v => hideRead = v, READ_BUTTON_COLOR));
+    controls.appendChild(mk("Hide Ignored", () => hideIgnore, v => hideIgnore = v, IGNORE_BUTTON_COLOR));
+    controls.appendChild(mk("Hide New", () => hideUnmarked, v => hideUnmarked = v, UNMARKED_BUTTON_COLOR));
+    controls.appendChild(createSettingsCog());
   }
 
-  /* ================ OPTIMIZED MUTATION OBSERVER ================ */
-  function runOnce() {
-    addTopControls();
-    addControlsToAll();
-    applyFilters();
-  }
-
-  let scheduled = false;
-  let lastRunTime = 0;
-  const MIN_RUN_INTERVAL = 100;
-  const DEBOUNCE_DELAY = 50;
-
-  let debounceTimer = null;
-  let mutationCount = 0;
-  const MAX_MUTATIONS_BEFORE_IMMEDIATE = 10;
-
-  function scheduleRun() {
-    mutationCount++;
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-
-    const now = Date.now();
-    const timeSinceLastRun = now - lastRunTime;
-
-    if (mutationCount >= MAX_MUTATIONS_BEFORE_IMMEDIATE) {
-      if (!scheduled) {
-        scheduled = true;
-        mutationCount = 0;
-        setTimeout(() => {
-          scheduled = false;
-          lastRunTime = Date.now();
-          try { runOnce(); } catch (e) { console.error(e); }
-        }, 0);
-      }
-      return;
-    }
-
-    if (timeSinceLastRun >= MIN_RUN_INTERVAL && !scheduled) {
-      scheduled = true;
-      mutationCount = 0;
-      setTimeout(() => {
-        scheduled = false;
-        lastRunTime = Date.now();
-        try { runOnce(); } catch (e) { console.error(e); }
-      }, 0);
-      return;
-    }
-
-    debounceTimer = setTimeout(() => {
-      if (!scheduled) {
-        scheduled = true;
-        mutationCount = 0;
-        setTimeout(() => {
-          scheduled = false;
-          lastRunTime = Date.now();
-          try { runOnce(); } catch (e) { console.error(e); }
-        }, 0);
-      }
-    }, DEBOUNCE_DELAY);
-  }
-
-  const observer = new MutationObserver((mutations) => {
-    const hasRelevantMutations = mutations.some(mutation => {
-      if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-        return true;
-      }
-      if (mutation.type === 'attributes') {
-        const target = mutation.target;
-        if (target.classList && (
-          target.classList.contains('chapter-feed__container') ||
-          target.classList.contains('manga-card') ||
-          target.classList.contains('md-card') ||
-          target.tagName === 'A'
-        )) {
-          return true;
-        }
-      }
-      return false;
-    });
-
-    if (hasRelevantMutations) {
-      scheduleRun();
-    }
+  /* ================ OBSERVER ================ */
+  let timer;
+  const observer = new MutationObserver(() => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      addTopControls();
+      addControlsToAll();
+      applyFilters();
+    }, 50);
   });
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['class', 'href', 'style'],
-    characterData: false
-  });
-
-  scheduleRun();
-
+  observer.observe(document.body, { childList: true, subtree: true });
+  addTopControls();
+  addControlsToAll();
 })();
