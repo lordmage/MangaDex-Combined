@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         MangaDex++ Enhanced v2.6.3 (Strict ID Fix)
-// @version      2.6.3
+// @version      2.6.4
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
 // @description  Read / Ignore / Clear buttons on every manga card - Fixed UUID reset issues
@@ -133,9 +133,14 @@
     btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
 
     const menu = document.createElement("div");
-    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color: #eee;`;
+    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color: white;`;
 
-    menu.innerHTML = `<div style="font-weight:700; margin-bottom:6px;">MangaDex++ Data</div>`;
+    // Fix: Replace innerHTML with createElement to comply with Trusted Types CSP
+    const title = document.createElement("div");
+    title.style.fontWeight = "700";
+    title.style.marginBottom = "6px";
+    title.textContent = "MangaDex++ Data";
+    menu.appendChild(title);
 
     const exBtn = document.createElement("button");
     exBtn.textContent = "Export Data";
@@ -173,7 +178,7 @@
       b.type = "button";
       b.value = label;
       b.className = cls;
-      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); transition: all 0.1s ease; color: white;`;
+      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(255,255,255,0.2);`;
 
       b.onclick = (e) => {
         e.preventDefault();
@@ -267,7 +272,7 @@
     function mk(label, get, set, color) {
       const b = document.createElement("input");
       b.type = "button"; b.value = label;
-      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white; transition: background 0.2s;`;
+      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white; transition: background-color 0.2s;`;
       b.style.backgroundColor = get() ? color : "transparent";
 
       b.onclick = () => {
