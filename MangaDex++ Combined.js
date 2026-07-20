@@ -206,7 +206,8 @@
     const processed = new Set();
 
     titleLinks.forEach(a => {
-      if (a.closest("nav, header, .mangadexpp-settings-container") || isInTitlesSidebar(a)) return;
+      // UPDATED: Skip links in any sidebar section (id starts with 'section-') in addition to nav/header
+      if (a.closest("nav, header, .mangadexpp-settings-container, [id^='section-']") || isInTitlesSidebar(a)) return;
 
       const cont = getCandidateContainerForAnchor(a);
       if (!cont || processed.has(cont) || cont.querySelector(".mangadexpp-controls")) return;
