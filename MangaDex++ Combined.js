@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         MangaDex++ Enhanced v2.6.3 (Strict ID Fix)
-// @version      2.6.4
+// @version      2.6.5
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
 // @description  Read / Ignore / Clear buttons on every manga card - Fixed UUID reset issues
@@ -69,6 +69,11 @@
   /* ================ UTILITIES ================ */
   function isInTitlesSidebar(el) {
     return !!el.closest("#section-Titles");
+  }
+
+  function isInAnySidebar(el) {
+    // Check if element is inside any navigation sidebar section
+    return !!el.closest("[id^='section-'], .drawer");
   }
 
   function extractIdFromHref(href) {
@@ -206,8 +211,8 @@
     const processed = new Set();
 
     titleLinks.forEach(a => {
-      // UPDATED: Skip links in any sidebar section (id starts with 'section-') in addition to nav/header
-      if (a.closest("nav, header, .mangadexpp-settings-container, [id^='section-']") || isInTitlesSidebar(a)) return;
+      // UPDATED: Skip links in any sidebar section or navigation area (prevents buttons on sidebar links)
+      if (a.closest("nav, header, .mangadexpp-settings-container") || isInAnySidebar(a)) return;
 
       const cont = getCandidateContainerForAnchor(a);
       if (!cont || processed.has(cont) || cont.querySelector(".mangadexpp-controls")) return;
@@ -273,7 +278,7 @@
     function mk(label, get, set, color) {
       const b = document.createElement("input");
       b.type = "button"; b.value = label;
-      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white; transition: background-color 0.2s;`;
+      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white; transition: background-color 200ms ease;`;
       b.style.backgroundColor = get() ? color : "transparent";
 
       b.onclick = () => {
