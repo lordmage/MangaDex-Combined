@@ -138,7 +138,7 @@
     btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
 
     const menu = document.createElement("div");
-    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color: white;`;
+    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color[...]`;
 
     // Fix: Replace innerHTML with createElement to comply with Trusted Types CSP
     const title = document.createElement("div");
@@ -183,7 +183,7 @@
       b.type = "button";
       b.value = label;
       b.className = cls;
-      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(255,255,255,0.2);`;
+      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(255, 255, 255, 0.2);`;
 
       b.onclick = (e) => {
         e.preventDefault();
@@ -213,6 +213,12 @@
     titleLinks.forEach(a => {
       // UPDATED: Skip links in any sidebar section or navigation area (prevents buttons on sidebar links)
       if (a.closest("nav, header, .mangadexpp-settings-container") || isInAnySidebar(a)) return;
+
+      // NEW: Skip anchors that are media previews (video or resource thumbnails).
+      // We specifically allow anchors that contain cover <img> elements, but skip ones
+      // that contain <video> or <source> elements pointing at the /img/resource/ path
+      // used by preview thumbnails/webm resources.
+      if (a.querySelector("video") || a.querySelector("source[src*='/img/resource/']")) return;
 
       const cont = getCandidateContainerForAnchor(a);
       if (!cont || processed.has(cont) || cont.querySelector(".mangadexpp-controls")) return;
@@ -278,7 +284,7 @@
     function mk(label, get, set, color) {
       const b = document.createElement("input");
       b.type = "button"; b.value = label;
-      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white; transition: background-color 200ms ease;`;
+      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white; transition:[...]`;
       b.style.backgroundColor = get() ? color : "transparent";
 
       b.onclick = () => {
