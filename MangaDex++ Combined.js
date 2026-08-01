@@ -34,6 +34,15 @@
   let hideAllRead = true;
   let hideReadChapters = false;
 
+  // Keys stored in DB that are UI state only and must NOT be exported
+  const UI_STATE_KEYS = [
+    "STATE_hideRead",
+    "STATE_hideIgnore",
+    "STATE_hideUnmarked",
+    "STATE_hideAllRead",
+    "STATE_hideReadChapters"
+  ];
+
   const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
   /* ================ STORAGE WRAPPER ================ */
@@ -72,6 +81,30 @@
     }
   };
 
+  function saveUIState() {
+    try {
+      db.set("STATE_hideRead", hideRead ? "1" : "0");
+      db.set("STATE_hideIgnore", hideIgnore ? "1" : "0");
+      db.set("STATE_hideUnmarked", hideUnmarked ? "1" : "0");
+      db.set("STATE_hideAllRead", hideAllRead ? "1" : "0");
+      db.set("STATE_hideReadChapters", hideReadChapters ? "1" : "0");
+    } catch (e) {
+      console.error("Failed to save UI state", e);
+    }
+  }
+
+  function loadUIState() {
+    try {
+      const v1 = db.get("STATE_hideRead"); if (v1 !== null) hideRead = v1 === "1";
+      const v2 = db.get("STATE_hideIgnore"); if (v2 !== null) hideIgnore = v2 === "1";
+      const v3 = db.get("STATE_hideUnmarked"); if (v3 !== null) hideUnmarked = v3 === "1";
+      const v4 = db.get("STATE_hideAllRead"); if (v4 !== null) hideAllRead = v4 === "1";
+      const v5 = db.get("STATE_hideReadChapters"); if (v5 !== null) hideReadChapters = v5 === "1";
+    } catch (e) {
+      console.error("Failed to load UI state", e);
+    }
+  }
+
   /* ================ UTILITIES ================ */
   function isInTitlesSidebar(el) {
     return !!el.closest("#section-Titles");
@@ -93,7 +126,10 @@
   /* ================ EXPORT / IMPORT ================ */
   function exportLocalStorage() {
     try {
-      const data = JSON.stringify(db.getAll(), null, 2);
+      const all = db.getAll();
+      // Remove UI state keys from export
+      UI_STATE_KEYS.forEach(k => { if (k in all) delete all[k]; });
+      const data = JSON.stringify(all, null, 2);
       const blob = new Blob([data], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -141,6 +177,7 @@
     const btn = document.createElement("input");
     btn.type = "button";
     btn.value = "⚙";
+    btn.title = "MangaDex++: Export/Import data and settings";
     btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
 
     const menu = document.createElement("div");
@@ -155,11 +192,13 @@
 
     const exBtn = document.createElement("button");
     exBtn.textContent = "Export Data";
+    exBtn.title = "Export MangaDex++ saved manga/ignore data (UI toggles excluded)";
     exBtn.style.cssText = "width:100%; margin-bottom:6px; cursor:pointer;";
     exBtn.onclick = exportLocalStorage;
 
     const imBtn = document.createElement("button");
     imBtn.textContent = "Import Data";
+    imBtn.title = "Import saved manga/ignore data";
     imBtn.style.cssText = "width:100%; cursor:pointer;";
     imBtn.onclick = importLocalStorage;
 
@@ -184,11 +223,12 @@
     row.dataset.entryid = entryID;
     row.style.cssText = "margin-top: 4px; display: flex; gap: 4px; justify-content: flex-start;";
 
-    function mk(label, cls, color, action) {
+    function mk(label, cls, color, action, tooltip) {
       const b = document.createElement("input");
       b.type = "button";
       b.value = label;
       b.className = cls;
+      b.title = tooltip || label;
       b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); color: white;`;
 
       if (color) b.style.background = "transparent";
@@ -196,14 +236,15 @@
         e.preventDefault();
         e.stopPropagation();
         action();
+        saveUIState();
         applyFilters();
       };
       return b;
     }
 
-    row.appendChild(mk("Read", "mangadexpp-read", READ_BUTTON_COLOR, () => db.set(entryID, "1")));
-    row.appendChild(mk("Ignore", "mangadexpp-ignore", IGNORE_BUTTON_COLOR, () => db.set(entryID, "-1")));
-    row.appendChild(mk("Clear", "mangadexpp-clear", null, () => db.remove(entryID)));
+    row.appendChild(mk("Read", "mangadexpp-read", READ_BUTTON_COLOR, () => db.set(entryID, "1"), "Mark this manga as Read"));
+    row.appendChild(mk("Ignore", "mangadexpp-ignore", IGNORE_BUTTON_COLOR, () => db.set(entryID, "-1"), "Mark this manga as Ignored"));
+    row.appendChild(mk("Clear", "mangadexpp-clear", null, () => db.remove(entryID), "Clear read/ignore mark for this manga"));
 
     return row;
   }
@@ -298,25 +339,27 @@
     if (!controls || controls.classList.contains("mdpp-ready")) return;
     controls.classList.add("mdpp-ready");
 
-    function mk(label, get, set, color) {
+    function mk(label, get, set, color, tooltip) {
       const b = document.createElement("input");
       b.type = "button"; b.value = label;
+      b.title = tooltip || label;
       b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white;`;
       b.style.backgroundColor = get() ? color : "transparent";
 
       b.onclick = () => {
         set(!get());
+        saveUIState();
         b.style.backgroundColor = get() ? color : "transparent";
         applyFilters();
       };
       return b;
     }
 
-    controls.appendChild(mk("Hide Read", () => hideRead, v => hideRead = v, READ_BUTTON_COLOR));
-    controls.appendChild(mk("Hide Ignored", () => hideIgnore, v => hideIgnore = v, IGNORE_BUTTON_COLOR));
-    controls.appendChild(mk("Hide New", () => hideUnmarked, v => hideUnmarked = v, UNMARKED_BUTTON_COLOR));
+    controls.appendChild(mk("Hide Read", () => hideRead, v => hideRead = v, READ_BUTTON_COLOR, "Hide whole manga cards marked as Read"));
+    controls.appendChild(mk("Hide Ignored", () => hideIgnore, v => hideIgnore = v, IGNORE_BUTTON_COLOR, "Hide whole manga cards marked as Ignored"));
+    controls.appendChild(mk("Hide New", () => hideUnmarked, v => hideUnmarked = v, UNMARKED_BUTTON_COLOR, "Hide whole manga cards not marked Read or Ignored"));
     // New: separate control to hide individual chapter entries marked as read
-    controls.appendChild(mk("👁 Hide Read Chapters", () => hideReadChapters, v => hideReadChapters = v, HIDE_ALL_READ_BUTTON_COLOR));
+    controls.appendChild(mk("👁 Hide Read Chapters", () => hideReadChapters, v => hideReadChapters = v, HIDE_ALL_READ_BUTTON_COLOR, "Hide individual chapter rows that are marked Read"));
     controls.appendChild(createSettingsCog());
   }
 
@@ -330,6 +373,9 @@
       applyFilters();
     }, 50);
   });
+
+  // Load UI state from storage before starting
+  loadUIState();
 
   observer.observe(document.body, { childList: true, subtree: true });
   addTopControls();
