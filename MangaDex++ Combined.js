@@ -23,10 +23,16 @@
 
   const DOES_HIDE_ALL_READ = true;
 
+  // Controls:
+  // hideRead         -> hide entire manga cards marked as read (existing behavior)
+  // hideIgnore       -> hide manga marked as ignored
+  // hideUnmarked     -> hide manga not marked (new)
+  // hideReadChapters -> hide individual chapter entries that are marked as read (new)
   let hideRead = false;
   let hideIgnore = true;
   let hideUnmarked = false;
   let hideAllRead = true;
+  let hideReadChapters = false;
 
   const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -138,7 +144,7 @@
     btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
 
     const menu = document.createElement("div");
-    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color[...]`;
+    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color: #fff;`;
 
     // Fix: Replace innerHTML with createElement to comply with Trusted Types CSP
     const title = document.createElement("div");
@@ -183,8 +189,9 @@
       b.type = "button";
       b.value = label;
       b.className = cls;
-      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(255, 255, 255, 0.2);`;
+      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); color: white;`;
 
+      if (color) b.style.background = "transparent";
       b.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -245,8 +252,10 @@
       if (!cont) return;
 
       // Sync button colors
-      row.querySelector(".mangadexpp-read").style.background = flag === "1" ? READ_BUTTON_COLOR : "transparent";
-      row.querySelector(".mangadexpp-ignore").style.background = flag === "-1" ? IGNORE_BUTTON_COLOR : "transparent";
+      const readBtn = row.querySelector(".mangadexpp-read");
+      const ignoreBtn = row.querySelector(".mangadexpp-ignore");
+      if (readBtn) readBtn.style.background = flag === "1" ? READ_BUTTON_COLOR : "transparent";
+      if (ignoreBtn) ignoreBtn.style.background = flag === "-1" ? IGNORE_BUTTON_COLOR : "transparent";
 
       if (cont.closest(".layout-container")) {
         cont.style.display = ""; // Never hide on the detail page itself
@@ -261,6 +270,13 @@
       cont.style.display = shouldHide ? "none" : "";
     });
 
+    // Hide individual chapter entries marked as read (new control)
+    document.querySelectorAll(".chapter").forEach(ch => {
+      if (ch.closest(".layout-container")) return;
+      const isRead = ch.classList.contains("read") || !!ch.querySelector(".readMarker.opacity-40");
+      ch.style.display = (hideReadChapters && isRead) ? "none" : "";
+    });
+
     if (DOES_HIDE_ALL_READ) hideAllReadFeed();
   }
 
@@ -270,6 +286,7 @@
       const list = cont.querySelector(".chapter-feed__chapters-list");
       if (!list) return;
 
+      // Determine if any chapter in the list is unread by checking for .readMarker without .opacity-40
       const hasUnread = !!list.querySelector(".readMarker:not(.opacity-40)");
       cont.style.display = (hideAllRead && !hasUnread) ? "none" : (cont.style.display === "none" ? "none" : "");
     });
@@ -284,7 +301,7 @@
     function mk(label, get, set, color) {
       const b = document.createElement("input");
       b.type = "button"; b.value = label;
-      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white; transition:[...]`;
+      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white;`;
       b.style.backgroundColor = get() ? color : "transparent";
 
       b.onclick = () => {
@@ -298,6 +315,8 @@
     controls.appendChild(mk("Hide Read", () => hideRead, v => hideRead = v, READ_BUTTON_COLOR));
     controls.appendChild(mk("Hide Ignored", () => hideIgnore, v => hideIgnore = v, IGNORE_BUTTON_COLOR));
     controls.appendChild(mk("Hide New", () => hideUnmarked, v => hideUnmarked = v, UNMARKED_BUTTON_COLOR));
+    // New: separate control to hide individual chapter entries marked as read
+    controls.appendChild(mk("👁 Hide Read Chapters", () => hideReadChapters, v => hideReadChapters = v, HIDE_ALL_READ_BUTTON_COLOR));
     controls.appendChild(createSettingsCog());
   }
 
