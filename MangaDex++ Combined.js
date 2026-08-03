@@ -181,7 +181,7 @@
     btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
 
     const menu = document.createElement("div");
-    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color[...]`;
+    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; [...]`;
 
     // Fix: Replace innerHTML with createElement to comply with Trusted Types CSP
     const title = document.createElement("div");
@@ -228,8 +228,10 @@
       b.type = "button";
       b.value = label;
       b.className = cls;
+      // Make entry id easy to read for other code paths
+      b.setAttribute("entryid", entryID);
       b.title = tooltip || label;
-      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(2[...]`;
+      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(2[...][...]`;
 
       if (color) b.style.background = "transparent";
       b.onclick = (e) => {
@@ -283,23 +285,32 @@
   }
 
   function applyFilters() {
-    const data = db.getAll(); // Bulk read to memory
+    // Bulk read storage once
+    const data = db.getAll();
 
+    // Ensure duplicate top-bars don't appear; keep color sync centralized (some pages render controls multiple times)
     document.querySelectorAll(".mangadexpp-controls").forEach(row => {
-      const id = row.dataset.entryid;
-      const flag = data[id];
-      const cont = getCandidateContainerForAnchor(row);
+      // Support both patterns: dataset.entryid or child input[entryid]
+      const id = row.dataset.entryid || (row.querySelector("input[entryid]") && row.querySelector("input[entryid]").getAttribute("entryid"));
+      const flag = id ? data[id] : null;
 
+      // Find the candidate container for this control row
+      const cont = getCandidateContainerForAnchor(row);
       if (!cont) return;
 
-      // Sync button colors
-      const readBtn = row.querySelector(".mangadexpp-read");
-      const ignoreBtn = row.querySelector(".mangadexpp-ignore");
-      if (readBtn) readBtn.style.background = flag === "1" ? READ_BUTTON_COLOR : "transparent";
-      if (ignoreBtn) ignoreBtn.style.background = flag === "-1" ? IGNORE_BUTTON_COLOR : "transparent";
+      // Sync button colors (always)
+      try {
+        const readBtn = row.querySelector(".mangadexpp-read");
+        const ignoreBtn = row.querySelector(".mangadexpp-ignore");
+        if (readBtn) readBtn.style.background = flag === "1" ? READ_BUTTON_COLOR : "transparent";
+        if (ignoreBtn) ignoreBtn.style.background = flag === "-1" ? IGNORE_BUTTON_COLOR : "transparent";
+      } catch (e) {
+        // ignore
+      }
 
+      // Never hide things on the title detail page
       if (cont.closest(".layout-container")) {
-        cont.style.display = ""; // Never hide on the detail page itself
+        cont.style.display = "";
         return;
       }
 
@@ -312,7 +323,6 @@
     });
 
     // Hide individual chapter entries marked as read (new control)
-    // Use broader selectors and more robust read detection so the toggle reliably shows/hides read chapters.
     document.querySelectorAll(".chapter, .chapter-row, .chapter-feed__chapter, .chapter-list__item, [class*='chapter']").forEach(ch => {
       try {
         if (ch.closest(".layout-container")) return;
@@ -348,33 +358,51 @@
 
   /* ================ TOP BAR CONTROLS ================ */
   function addTopControls() {
-    const controls = document.querySelector(".controls");
-    if (!controls || controls.classList.contains("mdpp-ready")) return;
+    // Use the first .controls bar, hide duplicates, and ensure consistent toggles
+    const allControls = document.querySelectorAll(".controls");
+    if (!allControls || allControls.length === 0) return;
+    const controls = allControls[0];
+    if (controls.classList.contains("mdpp-ready")) return;
     controls.classList.add("mdpp-ready");
+    // Hide duplicate control bars if page created more than one
+    for (let i = 1; i < allControls.length; i++) try { allControls[i].style.display = "none"; } catch (e) {}
 
     function mk(label, get, set, color, tooltip) {
       const b = document.createElement("input");
-      b.type = "button"; b.value = label;
+      b.type = "button";
+      b.value = label;
       b.title = tooltip || label;
-      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white;`;
-      // Reflect initial state visually and via aria-pressed
+      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; line-height: 28px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.1); color: white;`;
       b.style.backgroundColor = get() ? color : "transparent";
       b.setAttribute("aria-pressed", get() ? "true" : "false");
 
       b.onclick = () => {
-        set(!get());
+        const newVal = !get();
+        set(newVal);
         saveUIState();
-        b.style.backgroundColor = get() ? color : "transparent";
-        b.setAttribute("aria-pressed", get() ? "true" : "false");
+        b.style.backgroundColor = newVal ? color : "transparent";
+        b.setAttribute("aria-pressed", newVal ? "true" : "false");
         applyFilters();
       };
+
+      // Hover effects to match other buttons
+      b.addEventListener("mouseenter", function() {
+        b.style.opacity = "0.9";
+        b.style.transform = "translateY(-1px)";
+        b.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
+      });
+      b.addEventListener("mouseleave", function() {
+        b.style.opacity = "1";
+        b.style.transform = "translateY(0)";
+        b.style.boxShadow = "none";
+      });
+
       return b;
     }
 
     controls.appendChild(mk("Hide Read", () => hideRead, v => hideRead = v, READ_BUTTON_COLOR, "Hide whole manga cards marked as Read"));
     controls.appendChild(mk("Hide Ignored", () => hideIgnore, v => hideIgnore = v, IGNORE_BUTTON_COLOR, "Hide whole manga cards marked as Ignored"));
     controls.appendChild(mk("Hide New", () => hideUnmarked, v => hideUnmarked = v, UNMARKED_BUTTON_COLOR, "Hide whole manga cards not marked Read or Ignored"));
-    // New: separate control to hide individual chapter entries marked as read
     controls.appendChild(mk("👁 Hide Read Chapters", () => hideReadChapters, v => hideReadChapters = v, HIDE_ALL_READ_BUTTON_COLOR, "Hide individual chapter rows that are marked Read"));
     controls.appendChild(createSettingsCog());
   }
