@@ -319,7 +319,7 @@
 
         const classAttr = ch.getAttribute("class") || "";
         const hasReadClass = classAttr.split(/\s+/).includes("read") || classAttr.split(/\s+/).includes("is-read");
-        const hasReadMarker = !!ch.querySelector(".readMarker.opacity-40, .readMarker.read, .chapter-read-marker, .readMarker");
+        const hasReadMarker = !!ch.querySelector(".readMarker.opacity-40, .readMarker.read, .chapter-read-marker");
         const ariaRead = ch.getAttribute("aria-read") === "true" || ch.getAttribute("aria-pressed") === "true";
         const classTextIndicatesRead = /\bread\b/i.test(classAttr);
 
