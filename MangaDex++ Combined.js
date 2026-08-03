@@ -1,510 +1,733 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.6.3 (Strict ID Fix)
-// @version      2.6.5
-// @copyright    Lordmage 2025
+// @name         MangaDex++ Combined
 // @namespace    https://github.com/lordmage/MangaDex-Combined
-// @description  Read / Ignore / Clear buttons on every manga card - Fixed UUID reset issues
-// @author       @ Theo1996, MangaDexPP, patched by Workik
+// @version      1.0.7
+// @description  Enhanced QOL features for MangaDex with stable controls and filtering - Optimized
 // @match        https://mangadex.org/*
+// @match        http://mangadex.org/*
 // @icon         https://icons.duckduckgo.com/ip2/www.mangadex.org.ico
 // @grant        none
 // ==/UserScript==
 
-(function () {
-  "use strict";
+//------------------------------------------------//
+//------------------CONFIGURABLE------------------//
+//------------------------------------------------//
 
-  /* ================= CONFIG / STATE ================= */
-  const STORAGE_PREFIX = "MDPP_"; // Prevents collisions with site data
-  const READ_BUTTON_COLOR = "#13ab493d";
-  const IGNORE_BUTTON_COLOR = "#ab13133d";
-  const UNMARKED_BUTTON_COLOR = "#4242cd3d";
-  const HIDE_ALL_READ_BUTTON_COLOR = "#ff80003d";
-  const SETTINGS_BUTTON_COLOR = "#6b72803d";
+//-------------------UNIVERSAL--------------------//
+const POLLING_TIME = 100;
+const API_REQUEST_INTERVAL = 1000;
 
-  const DOES_HIDE_ALL_READ = true;
+//--------------------TRACKER---------------------//
+const STORAGE_PREFIX = "MDPP_"; // Prevents collisions with site data
+const READ_BUTTON_COLOR = "#13ab493d";
+const IGNORE_BUTTON_COLOR = "#ab13133d";
+const UNMARKED_BUTTON_COLOR = "#4242cd3d";
+const HIDE_ALL_READ_BUTTON_COLOR = "#ff80003d";
 
-  // Controls:
-  // hideRead         -> hide entire manga cards marked as read (existing behavior)
-  // hideIgnore       -> hide manga marked as ignored
-  // hideUnmarked     -> hide manga not marked (new)
-  // hideReadChapters -> hide individual chapter entries that are marked as read (new)
-  let hideRead = false;
-  let hideIgnore = true;
-  let hideUnmarked = false;
-  let hideAllRead = true;
-  let hideReadChapters = false;
+//-----------------HIDE ALL READ------------------//
+const DOES_HIDE_ALL_READ = true;
 
-  // Keys stored in DB that are UI state only and must NOT be exported
-  const UI_STATE_KEYS = [
-    "STATE_hideRead",
-    "STATE_hideIgnore",
-    "STATE_hideUnmarked",
-    "STATE_hideAllRead",
-    "STATE_hideReadChapters"
-  ];
+//------------------BLOCK USERS-------------------//
+const USER_LIST = [];
+const GROUP_LIST = [];
+const TAG_LIST = ["boys' love"]; // IMPORTANT: Use all lowercase
 
-  const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+//------------------------------------------------//
+//------------------DO NOT TOUCH------------------//
+//------------------------------------------------//
+let hideRead = false;
+let hideIgnore = true;
+let hideUnmarked = false;
+let hideAllRead = true;
+let forceRecheckNewEntry = false;
+let queue = [];
 
-  /* ================ STORAGE WRAPPER ================ */
-  // Migration: Move old raw UUID keys to namespaced keys
-  (function migrate() {
-    const keysToMigrate = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (UUID_RE.test(key) && !key.startsWith(STORAGE_PREFIX)) {
-        keysToMigrate.push(key);
-      }
-    }
-    if (keysToMigrate.length > 0) {
-      console.log(`MangaDex++: Migrating ${keysToMigrate.length} legacy entries...`);
-      keysToMigrate.forEach(k => {
-        const val = localStorage.getItem(k);
-        localStorage.setItem(STORAGE_PREFIX + k, val);
-        localStorage.removeItem(k);
-      });
-    }
-  })();
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
-  const db = {
-    get: (id) => localStorage.getItem(STORAGE_PREFIX + id),
-    set: (id, val) => localStorage.setItem(STORAGE_PREFIX + id, val),
-    remove: (id) => localStorage.removeItem(STORAGE_PREFIX + id),
-    getAll: () => {
-        const data = {};
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith(STORAGE_PREFIX)) {
-                data[key.replace(STORAGE_PREFIX, "")] = localStorage.getItem(key);
+const CATEGORY_FEED = "/titles/feed";
+const CATEGORY_FOLLOWS = "/titles/follows";
+const CATEGORY_HISTORY = "/my/history";
+const CATEGORY_ALL = "/titles";
+const CATEGORY_RECENT = "/titles/recent";
+const CATEGORY_LATEST = "/titles/latest";
+const CATEGORY_AUTHOR = "/author/";
+const CATEGORY_GROUP = "/group/";
+const CATEGORY_TITLE = "/title/";
+const CATEGORY_TAGS = "/tag/";
+
+const FORMAT_NOT_FOUND = 0;
+const FORMAT_LIST = 1;
+const FORMAT_THUMBNAIL = 2;
+const FORMAT_DETAIL = 3;
+
+// ================ ENHANCED UTILITIES ================
+function extractIdFromHref(href) {
+    if (!href) return null;
+
+    // First try UUID pattern
+    const m = href.match(UUID_RE);
+    if (m) return m[0];
+
+    // Try to extract from URL path
+    try {
+        // Parse URL
+        const url = new URL(href);
+        const pathParts = url.pathname.split('/');
+
+        // Look for 'title' in path and get next segment
+        const titleIndex = pathParts.indexOf('title');
+        if (titleIndex !== -1 && titleIndex + 1 < pathParts.length) {
+            const potentialId = pathParts[titleIndex + 1];
+            // Return if it's not empty
+            if (potentialId && potentialId.trim() !== '') {
+                return potentialId;
             }
         }
-        return data;
-    }
-  };
 
-  function saveUIState() {
-    try {
-      db.set("STATE_hideRead", hideRead ? "1" : "0");
-      db.set("STATE_hideIgnore", hideIgnore ? "1" : "0");
-      db.set("STATE_hideUnmarked", hideUnmarked ? "1" : "0");
-      db.set("STATE_hideAllRead", hideAllRead ? "1" : "0");
-      db.set("STATE_hideReadChapters", hideReadChapters ? "1" : "0");
-    } catch (e) {
-      console.error("Failed to save UI state", e);
-    }
-  }
-
-  function loadUIState() {
-    try {
-      const v1 = db.get("STATE_hideRead"); if (v1 !== null) hideRead = v1 === "1";
-      const v2 = db.get("STATE_hideIgnore"); if (v2 !== null) hideIgnore = v2 === "1";
-      const v3 = db.get("STATE_hideUnmarked"); if (v3 !== null) hideUnmarked = v3 === "1";
-      const v4 = db.get("STATE_hideAllRead"); if (v4 !== null) hideAllRead = v4 === "1";
-      const v5 = db.get("STATE_hideReadChapters"); if (v5 !== null) hideReadChapters = v5 === "1";
-    } catch (e) {
-      console.error("Failed to load UI state", e);
-    }
-  }
-
-  /* ================ UTILITIES ================ */
-  function isInTitlesSidebar(el) {
-    return !!el.closest("#section-Titles");
-  }
-
-  function isInAnySidebar(el) {
-    // Check if element is inside any navigation sidebar section
-    return !!el.closest("[id^='section-'], .drawer");
-  }
-
-  function extractIdFromHref(href) {
-    if (!href) return null;
-    // STRICT FIX: Only extract UUID if it follows the "/title/" path.
-    // This prevents accidental chapter-id or user-id grabbing.
-    const match = href.match(/\/title\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-    return match ? match[1] : null;
-  }
-
-  /* ================ EXPORT / IMPORT ================ */
-  function exportLocalStorage() {
-    try {
-      const all = db.getAll();
-      // Remove UI state keys from export
-      UI_STATE_KEYS.forEach(k => { if (k in all) delete all[k]; });
-      const data = JSON.stringify(all, null, 2);
-      const blob = new Blob([data], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "mangadexpp-data.json";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(a.href);
-    } catch (e) {
-      console.error("Export failed", e);
-    }
-  }
-
-  function importLocalStorage() {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "application/json";
-    input.onchange = e => {
-      const f = e.target.files[0];
-      if (!f) return;
-      const r = new FileReader();
-      r.onload = () => {
-        try {
-          const parsed = JSON.parse(r.result);
-          Object.entries(parsed).forEach(([k, v]) => {
-            if (UUID_RE.test(k)) db.set(k, v);
-          });
-          alert("Import complete. Refreshing...");
-          window.location.reload();
-        } catch (err) {
-          alert("Invalid JSON file.");
+        // Fallback: look for any non-empty path segment that's not a common word
+        const commonWords = ['title', 'chapter', 'manga', 'tag', 'group', 'user', 'settings', 'login', 'register'];
+        for (const part of pathParts) {
+            if (part && part.trim() !== '' && !commonWords.includes(part.toLowerCase())) {
+                return part;
+            }
         }
-      };
-      r.readAsText(f);
-    };
-    input.click();
-  }
+    } catch (e) {
+        // If URL parsing fails, fall back to original logic but skip domains
+        const parts = href.split("/");
+        for (const p of parts) {
+            // Skip common domains and protocol parts
+            if (p && p.length >= 1 && !p.includes('http') && !p.includes('www.') && !p.includes('.org') && !p.includes('.com')) {
+                return p;
+            }
+        }
+    }
 
-  /* ================ SETTINGS COG ================ */
-  function createSettingsCog() {
-    const wrapper = document.createElement("div");
-    wrapper.style.position = "relative";
-    wrapper.classList.add("mangadexpp-settings-container");
+    return null;
+}
 
-    const btn = document.createElement("input");
-    btn.type = "button";
-    btn.value = "⚙";
-    btn.title = "MangaDex++: Export/Import data and settings";
-    btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
+function getFormat(pathname) {
+    if (pathname.startsWith(CATEGORY_TITLE)) {
+        return FORMAT_DETAIL;
+    }
+    if (pathname.startsWith(CATEGORY_GROUP)) {
+        return FORMAT_LIST;
+    }
+    if (pathname.startsWith(CATEGORY_AUTHOR)) {
+        return FORMAT_THUMBNAIL;
+    }
+    if (pathname.startsWith(CATEGORY_TAGS)) {
+        return FORMAT_THUMBNAIL;
+    }
+    switch (pathname) {
+        case CATEGORY_FEED:
+            return FORMAT_LIST;
+        case CATEGORY_FOLLOWS:
+            return FORMAT_THUMBNAIL;
+        case CATEGORY_HISTORY:
+            return FORMAT_LIST;
+        case CATEGORY_ALL:
+            return FORMAT_THUMBNAIL;
+        case CATEGORY_RECENT:
+            return FORMAT_THUMBNAIL;
+        case CATEGORY_LATEST:
+            return FORMAT_LIST;
+        default:
+            return FORMAT_NOT_FOUND;
+    }
+}
 
-    const menu = document.createElement("div");
-    // Use a full CSS text here rather than a truncated placeholder
-    menu.style.cssText = "display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px;";
-
-    // Fix: Replace innerHTML with createElement to comply with Trusted Types CSP
-    const title = document.createElement("div");
-    title.style.fontWeight = "700";
-    title.style.marginBottom = "6px";
-    title.textContent = "MangaDex++ Data";
-    menu.appendChild(title);
-
-    const exBtn = document.createElement("button");
-    exBtn.textContent = "Export Data";
-    exBtn.title = "Export MangaDex++ saved manga/ignore data (UI toggles excluded)";
-    exBtn.style.cssText = "width:100%; margin-bottom:6px; cursor:pointer;";
-    exBtn.onclick = exportLocalStorage;
-
-    const imBtn = document.createElement("button");
-    imBtn.textContent = "Import Data";
-    imBtn.title = "Import saved manga/ignore data";
-    imBtn.style.cssText = "width:100%; cursor:pointer;";
-    imBtn.onclick = importLocalStorage;
-
-    menu.appendChild(exBtn);
-    menu.appendChild(imBtn);
-
-    btn.onclick = (e) => {
-        e.stopPropagation();
-        menu.style.display = menu.style.display === "none" ? "block" : "none";
-    };
-
-    document.addEventListener("click", () => menu.style.display = "none");
-    wrapper.appendChild(btn);
-    wrapper.appendChild(menu);
-    return wrapper;
-  }
-
-  /* ================ PER-TITLE CONTROLS ================ */
-  function createControlsRow(entryID) {
+// ================ PER-TITLE CONTROLS ================
+function createControlsRow(entryID, format) {
     const row = document.createElement("div");
     row.className = "mangadexpp-controls";
-    row.dataset.entryid = entryID;
-    row.style.cssText = "margin-top: 4px; display: flex; gap: 4px; justify-content: flex-start;";
+    row.style.display = "flex";
+    row.style.gap = "6px";
+    row.style.marginTop = "6px";
 
-    function mk(label, cls, color, action, tooltip) {
-      const b = document.createElement("input");
-      b.type = "button";
-      b.value = label;
-      b.className = cls;
-      // Make entry id easy to read for other code paths
-      b.setAttribute("entryid", entryID);
-      b.title = tooltip || label;
-      // Use a complete cssText here
-      b.style.cssText = "padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; line-height: 24px; box-sizing: border-box; white-space: nowrap; font-family: inherit; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); transition: all 0.15s ease;";
+    // Fix: Always use flex-start for left alignment in all formats
+    row.style.justifyContent = "flex-start";
 
-      if (color) b.style.background = "transparent";
-      b.onclick = (e) => {
+    row.addEventListener("click", function(e) {
         e.preventDefault();
         e.stopPropagation();
-        action();
-        saveUIState();
-        applyFilters();
-      };
-      return b;
+        return false;
+    });
+
+    function mk(label, cls, cb) {
+        const b = document.createElement("input");
+        b.type = "button";
+        b.value = label;
+        b.className = cls;
+        b.setAttribute("entryid", entryID);
+        b.style.padding = "2px 6px";
+        b.style.borderRadius = "3px";
+        b.style.cursor = "pointer";
+        b.style.background = "transparent";
+        b.style.fontSize = "14px";
+        b.style.minWidth = "70px";
+        b.style.height = "28px";
+        b.style.lineHeight = "24px";
+        b.style.boxSizing = "border-box";
+        b.style.whiteSpace = "nowrap";
+        b.style.fontFamily = "inherit";
+        b.style.fontWeight = "500";
+        b.style.border = "1px solid rgba(255, 255, 255, 0.1)";
+        b.style.transition = "all 0.15s ease";
+        b.addEventListener("click", function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            cb(entryID);
+            applyFilters();
+            return false;
+        });
+
+        // Add hover effect
+        b.addEventListener("mouseenter", function() {
+            b.style.opacity = "0.9";
+            b.style.transform = "translateY(-1px)";
+            b.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
+        });
+        b.addEventListener("mouseleave", function() {
+            b.style.opacity = "1";
+            b.style.transform = "translateY(0)";
+            b.style.boxShadow = "none";
+        });
+
+        return b;
     }
 
-    row.appendChild(mk("Read", "mangadexpp-read", READ_BUTTON_COLOR, () => db.set(entryID, "1"), "Mark this manga as Read"));
-    row.appendChild(mk("Ignore", "mangadexpp-ignore", IGNORE_BUTTON_COLOR, () => db.set(entryID, "-1"), "Mark this manga as Ignored"));
-    row.appendChild(mk("Clear", "mangadexpp-clear", null, () => db.remove(entryID), "Clear read/ignore mark for this manga"));
+    row.appendChild(mk("Read", "mangadexpp-read", function(id) { localStorage.setItem(id, "1"); }));
+    row.appendChild(mk("Ignore", "mangadexpp-ignore", function(id) { localStorage.setItem(id, "-1"); }));
+    row.appendChild(mk("Clear", "mangadexpp-clear", function(id) { localStorage.removeItem(id); }));
 
     return row;
-  }
+}
 
-  /* ================ CORE LOGIC ================ */
-  function getCandidateContainerForAnchor(a) {
-    return a.closest(".chapter-feed__container, .manga-card, .md-card, .group.md-card, .card, li, article") || a.parentElement;
-  }
+function insertControlsForMangaCard(card, format) {
+    try {
+        // Find the title link in the manga card
+        const titleLink = card.querySelector("a[href*='/title/']");
+        if (!titleLink) return;
 
-  function addControlsToAll() {
-    const titleLinks = document.querySelectorAll("a[href*='/title/']");
-    const processed = new Set();
+        const href = titleLink.getAttribute("href") || titleLink.href || "";
+        const id = extractIdFromHref(href);
+        if (!id) return;
 
-    titleLinks.forEach(a => {
-      // UPDATED: Skip links in any sidebar section or navigation area (prevents buttons on sidebar links)
-      if (a.closest("nav, header, .mangadexpp-settings-container") || isInAnySidebar(a)) return;
+        // Check if controls already exist
+        if (card.querySelector(".mangadexpp-controls input[entryid='" + id + "']")) return;
 
-      // NEW: Skip anchors that are media previews (video or resource thumbnails).
-      // We specifically allow anchors that contain cover <img> elements, but skip ones
-      // that contain <video> or <source> elements pointing at the /img/resource/ path
-      // used by preview thumbnails/webm resources.
-      if (a.querySelector("video") || a.querySelector("source[src*='/img/resource/']")) return;
+        // Find where to insert controls - look for status or body
+        const status = card.querySelector(".status");
+        const body = card.querySelector(".manga-card-body");
 
-      const cont = getCandidateContainerForAnchor(a);
-      if (!cont || processed.has(cont) || cont.querySelector(".mangadexpp-controls")) return;
+        const controls = createControlsRow(id, format);
 
-      const id = extractIdFromHref(a.href);
-      if (!id) return;
+        if (status) {
+            // Insert after status
+            status.parentNode.insertBefore(controls, status.nextSibling);
+        } else if (body) {
+            // Append to body
+            body.appendChild(controls);
+        } else {
+            // Append to card as fallback
+            card.appendChild(controls);
+        }
+    } catch (e) {
+        console.debug("Control insertion failed for manga card:", e);
+    }
+}
 
-      const titleEl = cont.querySelector(".chapter-feed__cover, .chapter-feed__cover-image, a[data-v-58880355]") || a;
-      if (titleEl && titleEl.parentNode) {
-        titleEl.parentNode.insertBefore(createControlsRow(id), titleEl.nextSibling);
-        processed.add(cont);
-      }
+function insertControlsForFeedContainer(container, format) {
+    try {
+        const titleLink = container.querySelector(".chapter-feed__title");
+        if (!titleLink) return;
+
+        const href = titleLink.getAttribute("href") || titleLink.href || "";
+        const id = extractIdFromHref(href);
+        if (!id) return;
+
+        if (container.querySelector(".mangadexpp-controls input[entryid='" + id + "']")) return;
+
+        const titleContainer = titleLink.parentElement;
+        const controls = createControlsRow(id, format);
+
+        // For feed format, insert after the title
+        if (titleContainer) {
+            titleContainer.appendChild(controls);
+        } else {
+            container.appendChild(controls);
+        }
+    } catch (e) {
+        console.debug("Control insertion failed for feed:", e);
+    }
+}
+
+function addControlsToAll(format) {
+    // Handle manga cards (thumbnail format)
+    if (format === FORMAT_THUMBNAIL) {
+        document.querySelectorAll(".manga-card, .md-card, .group.md-card").forEach(function(card) {
+            insertControlsForMangaCard(card, format);
+        });
+    }
+    // Handle feed containers (list format)
+    else if (format === FORMAT_LIST) {
+        document.querySelectorAll(".chapter-feed__container").forEach(function(container) {
+            insertControlsForFeedContainer(container, format);
+        });
+    }
+}
+
+
+/* ================ EXPORT / IMPORT ================ */
+(function() {
+    function createButton(text, title, onClick, icon) {
+        const button = document.createElement("button");
+        button.title = title;
+        button.style.fontSize = "12px";
+        button.style.fontWeight = "normal";
+        button.style.padding = "2px 6px";
+        button.style.margin = "2px";
+        button.style.backgroundColor = "#333"; // dark background
+        button.style.color = "white";
+        button.style.border = "1px solid #555";
+        button.style.borderRadius = "4px";
+        button.style.zIndex = "99999";
+        button.style.position = "relative";
+        button.style.display = "inline-flex";
+        button.style.alignItems = "center";
+        button.style.cursor = "pointer";
+
+        const iconElement = document.createElement("span");
+        // Use textContent instead of innerHTML to comply with Trusted Types / CSP
+        iconElement.textContent = icon;
+        button.appendChild(iconElement);
+        button.appendChild(document.createTextNode(" " + text));
+
+        button.addEventListener("click", onClick);
+        return button;
+    }
+
+    function exportLocalStorage() {
+        const data = JSON.stringify(localStorage, null, 2);
+        const blob = new Blob([data], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "localstorage.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        console.log("LocalStorage exported!");
+    }
+
+    function importLocalStorage() {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/json";
+        input.onchange = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function() {
+                try {
+                    const data = JSON.parse(reader.result);
+                    Object.keys(data).forEach(key => {
+                        localStorage.setItem(key, data[key]);
+                    });
+                    console.log("LocalStorage successfully restored!");
+                    // alert("LocalStorage imported successfully! Refresh the page if necessary.");
+                } catch (e) {
+                    console.error("Error parsing JSON:", e);
+                }
+            };
+            reader.readAsText(file);
+        };
+        document.body.appendChild(input);
+        input.click();
+        document.body.removeChild(input);
+    }
+
+    function addButtonsToTargetDiv() {
+        const checkForElement = setInterval(function() {
+            const targetDiv = document.querySelector("div.item.active");
+            if (targetDiv) {
+                clearInterval(checkForElement);
+                const buttonContainer = document.createElement("div");
+                buttonContainer.style.display = "flex";
+                buttonContainer.style.flexDirection = "row";
+                buttonContainer.style.position = "absolute";
+                buttonContainer.style.top = "-30px";
+                buttonContainer.style.left = "0";
+                buttonContainer.style.zIndex = "99999";
+
+                const exportButton = createButton("Export", "Export LocalStorage", exportLocalStorage, "📤");
+                const importButton = createButton("Import", "Import LocalStorage", importLocalStorage, "📥");
+
+                buttonContainer.appendChild(exportButton);
+                buttonContainer.appendChild(importButton);
+
+                targetDiv.appendChild(buttonContainer);
+                console.log("Export/Import buttons successfully attached!");
+                // alert("Export/Import buttons successfully attached!");
+            }
+        }, 200);
+    }
+
+    addButtonsToTargetDiv();
+})();
+// ================ FEED UNREAD DETECTION ================
+function hasUnreadChaptersInFeedContainer(container) {
+    const list = container.querySelector(".chapter-feed__chapters-list");
+    if (!list) return null;
+    const unread = list.querySelector(".readMarker:not(.opacity-40)");
+    return !!unread;
+}
+
+function hideAllReadFeed() {
+    if (!DOES_HIDE_ALL_READ) return;
+    document.querySelectorAll(".chapter-feed__container").forEach(function(cont) {
+        if (cont.closest(".layout-container")) {
+            cont.style.display = "";
+            return;
+        }
+        if (!hideAllRead) {
+            if (cont.hasAttribute("feed-allread-hide")) {
+                cont.removeAttribute("feed-allread-hide");
+                cont.style.display = "";
+            }
+            return;
+        }
+        const unread = hasUnreadChaptersInFeedContainer(cont);
+        if (unread === null) return;
+        const allRead = unread === false;
+        if (allRead) {
+            cont.style.display = "none";
+            cont.setAttribute("feed-allread-hide", "true");
+        } else {
+            if (cont.hasAttribute("feed-allread-hide")) {
+                cont.removeAttribute("feed-allread-hide");
+                cont.style.display = "";
+            }
+        }
     });
-  }
+}
 
-  function applyFilters() {
-    // Bulk read storage once
-    const data = db.getAll();
-
-    // Ensure duplicate top-bars don't appear; keep color sync centralized (some pages render controls multiple times)
-    document.querySelectorAll(".mangadexpp-controls").forEach(row => {
-      // Support both patterns: dataset.entryid or child input[entryid]
-      const id = row.dataset.entryid || (row.querySelector("input[entryid]") && row.querySelector("input[entryid]").getAttribute("entryid"));
-      const flag = id ? data[id] : null;
-
-      // Find the candidate container for this control row
-      const cont = getCandidateContainerForAnchor(row);
-      if (!cont) return;
-
-      // Sync button colors (always)
-      try {
+// ================ FILTER LOGIC ================
+function syncColors(row, flag) {
+    try {
         const readBtn = row.querySelector(".mangadexpp-read");
         const ignoreBtn = row.querySelector(".mangadexpp-ignore");
         if (readBtn) readBtn.style.background = flag === "1" ? READ_BUTTON_COLOR : "transparent";
         if (ignoreBtn) ignoreBtn.style.background = flag === "-1" ? IGNORE_BUTTON_COLOR : "transparent";
-      } catch (e) {
-        // ignore
-      }
+    } catch (e) { }
+}
 
-      // Never hide things on the title detail page
-      if (cont.closest(".layout-container")) {
-        cont.style.display = "";
-        return;
-      }
-
-      let shouldHide = false;
-      if (flag === "1") shouldHide = hideRead;
-      else if (flag === "-1") shouldHide = hideIgnore;
-      else shouldHide = hideUnmarked;
-
-      cont.style.display = shouldHide ? "none" : "";
+function applyFilters() {
+    // Hide duplicate top control bars
+    document.querySelectorAll(".controls").forEach(function(c, i) {
+        if (i > 0) c.style.display = "none";
     });
 
-    // Hide individual chapter entries marked as read (new control)
-    document.querySelectorAll(".chapter, .chapter-row, .chapter-feed__chapter, .chapter-list__item, [class*='chapter']").forEach(ch => {
-      try {
-        if (ch.closest(".layout-container")) return;
+    document.querySelectorAll(".mangadexpp-controls").forEach(function(row) {
+        const inp = row.querySelector("input[entryid]");
+        if (!inp) return;
+        const id = inp.getAttribute("entryid");
+        const flag = localStorage.getItem(id);
 
-        const classAttr = ch.getAttribute("class") || "";
-        const hasReadClass = classAttr.split(/\s+/).includes("read") || classAttr.split(/\s+/).includes("is-read");
-        const hasReadMarker = !!ch.querySelector(".readMarker.opacity-40, .readMarker.read, .chapter-read-marker");
-        const ariaRead = ch.getAttribute("aria-read") === "true" || ch.getAttribute("aria-pressed") === "true";
-        const classTextIndicatesRead = /\bread\b/i.test(classAttr);
+        const cont = row.closest(".chapter-feed__container") ||
+                     row.closest(".manga-card") ||
+                     row.closest(".md-card") ||
+                     row.closest(".group.md-card") ||
+                     row.closest(".card") ||
+                     row.closest("li") ||
+                     row.closest("article");
 
-        const isRead = hasReadClass || hasReadMarker || ariaRead || classTextIndicatesRead;
+        if (!cont) return;
 
-        ch.style.display = (hideReadChapters && isRead) ? "none" : "";
-      } catch (err) {
-        // Safe-guard in case some matched nodes aren't actual chapter rows
-      }
+        // Never hide content on title detail pages
+        if (cont.closest(".layout-container")) {
+            syncColors(row, flag);
+            cont.style.display = "";
+            return;
+        }
+
+        let shouldHide = false;
+        if (flag === "1") shouldHide = hideRead;
+        else if (flag === "-1") shouldHide = hideIgnore;
+        else shouldHide = hideUnmarked;
+
+        cont.style.display = shouldHide ? "none" : "";
+        syncColors(row, flag);
     });
 
-    if (DOES_HIDE_ALL_READ) hideAllReadFeed();
-  }
+    // Apply feed-only hide-all-read
+    hideAllReadFeed();
+}
 
-  function hideAllReadFeed() {
-    document.querySelectorAll(".chapter-feed__container").forEach(cont => {
-      if (cont.closest(".layout-container")) return;
-      const list = cont.querySelector(".chapter-feed__chapters-list");
-      if (!list) return;
-
-      // Determine if any chapter in the list is unread by checking for .readMarker without .opacity-40
-      const hasUnread = !!list.querySelector(".readMarker:not(.opacity-40)");
-      cont.style.display = (hideAllRead && !hasUnread) ? "none" : (cont.style.display === "none" ? "none" : "");
-    });
-  }
-
-  /* ================ TOP BAR CONTROLS ================ */
-  function addTopControls() {
-    // Use the first .controls bar, hide duplicates, and ensure consistent toggles
+// ================ TOP CONTROLS ================
+function addTopControls() {
     const allControls = document.querySelectorAll(".controls");
     if (!allControls || allControls.length === 0) return;
     const controls = allControls[0];
-    if (controls.classList.contains("mdpp-ready")) return;
-    controls.classList.add("mdpp-ready");
-    // Hide duplicate control bars if page created more than one
-    for (let i = 1; i < allControls.length; i++) try { allControls[i].style.display = "none"; } catch (e) {}
+    if (controls.classList.contains("mangadexpp-has-controls")) return;
+    controls.classList.add("mangadexpp-has-controls");
+    for (let i = 1; i < allControls.length; i++) try {
+        allControls[i].style.display = "none";
+    } catch (e) { }
 
-    function mk(label, get, set, color, tooltip) {
-      const b = document.createElement("input");
-      b.type = "button";
-      b.value = label;
-      b.title = tooltip || label;
-      // Use a complete style string rather than a truncated placeholder
-      b.style.cssText = "padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; line-height: 28px; box-sizing: border-box; font-family: inherit; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); transition: all 0.15s ease;";
-      b.style.backgroundColor = get() ? color : "transparent";
-      b.setAttribute("aria-pressed", get() ? "true" : "false");
+    function mk(label, get, set, color, cb) {
+        const b = document.createElement("input");
+        b.type = "button";
+        b.value = label;
+        b.style.padding = "0 0.8em";
+        b.style.marginLeft = "6px";
+        b.style.borderRadius = "3px";
+        b.style.cursor = "pointer";
+        b.style.backgroundColor = get() ? color : "transparent";
+        b.style.fontSize = "14px";
+        b.style.height = "28px";
+        b.style.lineHeight = "28px";
+        b.style.boxSizing = "border-box";
+        b.style.fontFamily = "inherit";
+        b.style.fontWeight = "500";
+        b.style.border = "1px solid rgba(255, 255, 255, 0.1)";
+        b.style.transition = "all 0.15s ease";
+        b.addEventListener("click", function() {
+            const v = !get();
+            set(v);
+            b.style.backgroundColor = v ? color : "transparent";
+            applyFilters();
+            if (typeof cb === "function") cb();
+        });
 
-      b.onclick = () => {
-        const newVal = !get();
-        set(newVal);
-        saveUIState();
-        b.style.backgroundColor = newVal ? color : "transparent";
-        b.setAttribute("aria-pressed", newVal ? "true" : "false");
-        applyFilters();
-      };
+        // Add hover effect to match
+        b.addEventListener("mouseenter", function() {
+            b.style.opacity = "0.9";
+            b.style.transform = "translateY(-1px)";
+            b.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
+        });
+        b.addEventListener("mouseleave", function() {
+            b.style.opacity = "1";
+            b.style.transform = "translateY(0)";
+            b.style.boxShadow = "none";
+        });
 
-      // Hover effects to match other buttons
-      b.addEventListener("mouseenter", function() {
-        b.style.opacity = "0.9";
-        b.style.transform = "translateY(-1px)";
-        b.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
-      });
-      b.addEventListener("mouseleave", function() {
-        b.style.opacity = "1";
-        b.style.transform = "translateY(0)";
-        b.style.boxShadow = "none";
-      });
-
-      return b;
+        return b;
     }
 
-    controls.appendChild(mk("Hide Read", () => hideRead, v => hideRead = v, READ_BUTTON_COLOR, "Hide whole manga cards marked as Read"));
-    controls.appendChild(mk("Hide Ignored", () => hideIgnore, v => hideIgnore = v, IGNORE_BUTTON_COLOR, "Hide whole manga cards marked as Ignored"));
-    controls.appendChild(mk("Hide New", () => hideUnmarked, v => hideUnmarked = v, UNMARKED_BUTTON_COLOR, "Hide whole manga cards not marked Read or Ignored"));
-    controls.appendChild(mk("👁 Hide Read Chapters", () => hideReadChapters, v => hideReadChapters = v, HIDE_ALL_READ_BUTTON_COLOR, "Hide individual chapter rows that are marked Read"));
-    controls.appendChild(createSettingsCog());
-  }
+    controls.appendChild(mk("Toggle Read", function() { return hideRead; }, function(v) { hideRead = v; }, READ_BUTTON_COLOR));
+    controls.appendChild(mk("Toggle Ignore", function() { return hideIgnore; }, function(v) { hideIgnore = v; }, IGNORE_BUTTON_COLOR));
+    controls.appendChild(mk("Toggle Unmarked", function() { return hideUnmarked; }, function(v) { hideUnmarked = v; }, UNMARKED_BUTTON_COLOR));
+    if (DOES_HIDE_ALL_READ) controls.appendChild(mk("Hide All Read?", function() { return hideAllRead; }, function(v) { hideAllRead = v; }, HIDE_ALL_READ_BUTTON_COLOR, hideAllReadFeed));
+}
 
-  /* ================ OBSERVER (Optimized from Enhanced) ================ */
-  // Optimized scheduling with debouncing and throttling
-  let mdppScheduled = false;
-  let mdppLastRunTime = 0;
-  const MDPP_MIN_RUN_INTERVAL = 100; // Minimum 100ms between runs
-  const MDPP_DEBOUNCE_DELAY = 50; // Wait 50ms after last mutation before running
+// ================ ORIGINAL FUNCTIONALITY ================
+function blockUsers(format) {
+    if (format == FORMAT_LIST) {
+        // Completely remove chapter listing if all blocked
+        var chapters = document.querySelectorAll(".chapter-feed__container");
+        var toRemove = [];
+        for (var i = 0; i < chapters.length; i++) {
+            if (chapters[i].querySelectorAll(".chapter-grid.flex-grow").length == 0) {
+                toRemove.push(chapters[i]);
+            }
+        }
+        for (var i = 0; i < toRemove.length; i++) {
+            var allChildren = document.querySelectorAll(".page-container > div");
+            allChildren[allChildren.length - 1].removeChild(toRemove[i]);
+        }
+    }
 
-  let mdppDebounceTimer = null;
-  let mdppMutationCount = 0;
-  const MDPP_MAX_MUTATIONS_BEFORE_IMMEDIATE = 10; // If many mutations happen, run immediately
+    // Should work for both chapter listing in feeds and in manga page
+    var chapterRows = document.querySelectorAll(".chapter-grid.flex-grow");
+    for (var i = 0; i < chapterRows.length; i++) {
+        var row = chapterRows[i];
+        var uploader = row.querySelector(".user-tag > .line-clamp-1");
+        if ((uploader != null && USER_LIST.includes(uploader.innerText)) || GROUP_LIST.includes(row.querySelector(".group-tag").innerText)) {
+            row.parentNode.parentNode.removeChild(row.parentNode);
+        }
+    }
+}
 
-  function mdppScheduleRun() {
-    mdppMutationCount++;
+function checkPage(entryID) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', "https://api.mangadex.org/manga/" + entryID, true);
+    xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            var metadata = JSON.parse(xhr.responseText);
+            parseAndHandleEntry(entryID, metadata);
+        } else {
+            console.error('Failed to fetch entry ' + entryID + ' with status ' + xhr.status);
+        }
+    };
+    xhr.onerror = function () {
+        console.error('Failed to fetch entry ' + entryID);
+    };
+    xhr.send();
+}
 
-    if (mdppDebounceTimer) {
-      clearTimeout(mdppDebounceTimer);
+function parseAndHandleEntry(entryID, metadata) {
+    if (metadata["result"] != "ok") {
+        console.error('Failed to fetch entry ' + entryID);
+        return;
+    }
+    var tags = metadata["data"]["attributes"]["tags"];
+    for (var i = 0; i < tags.length; i++) {
+        var tag = tags[i]["attributes"]["name"]["en"].toLowerCase();
+        // Blacklisted tag
+        if (TAG_LIST.includes(tag)) {
+            console.log("Ignore " + entryID + " due to blacklisted tag: " + tag);
+            window.localStorage.setItem(entryID, -1);
+            return;
+        }
+    }
+    // Checked, but do nothing about it
+    window.localStorage.setItem(entryID, -2);
+}
+
+function handle_queue() {
+    if (queue.length > 0) {
+        var entryID = queue.shift();
+        console.debug("Popped ID " + entryID);
+        checkPage(entryID);
+    }
+    setTimeout(handle_queue, API_REQUEST_INTERVAL);
+}
+
+function main() {
+    var lastTagList = window.localStorage.getItem("_conf_tags");
+    var currentTagList = TAG_LIST.toLocaleString();
+    if (lastTagList != currentTagList) {
+        forceRecheckNewEntry = true;
+        window.localStorage.setItem("_conf_tags", currentTagList);
+    }
+    handleBaseUrl(window.location.href);
+    setTimeout(main, POLLING_TIME);
+}
+
+function handleBaseUrl(baseUrl) {
+    var url = new URL(baseUrl);
+    var format = getFormat(url.pathname);
+
+    blockUsers(format);
+    if (format === FORMAT_NOT_FOUND) {
+        return;
+    }
+
+    addTopControls();
+    addControlsToAll(format);
+    applyFilters();
+}
+
+// ================ OPTIMIZED MUTATION OBSERVER ================
+// Optimized scheduling with debouncing and throttling
+let scheduled = false;
+let lastRunTime = 0;
+const MIN_RUN_INTERVAL = 100; // Minimum 100ms between runs
+const DEBOUNCE_DELAY = 50; // Wait 50ms after last mutation before running
+
+let debounceTimer = null;
+let mutationCount = 0;
+const MAX_MUTATIONS_BEFORE_IMMEDIATE = 10; // If many mutations happen, run immediately
+
+function scheduleRun() {
+    // Count this mutation
+    mutationCount++;
+
+    // Clear any existing debounce timer
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
     }
 
     const now = Date.now();
-    const timeSinceLastRun = now - mdppLastRunTime;
+    const timeSinceLastRun = now - lastRunTime;
 
-    if (mdppMutationCount >= MDPP_MAX_MUTATIONS_BEFORE_IMMEDIATE) {
-      if (!mdppScheduled) {
-        mdppScheduled = true;
-        mdppMutationCount = 0;
-        setTimeout(function() {
-          mdppScheduled = false;
-          mdppLastRunTime = Date.now();
-          try { addTopControls(); addControlsToAll(); applyFilters(); } catch (e) { console.error(e); }
-        }, 0);
-      }
-      return;
-    }
-
-    if (timeSinceLastRun >= MDPP_MIN_RUN_INTERVAL && !mdppScheduled) {
-      mdppScheduled = true;
-      mdppMutationCount = 0;
-      setTimeout(function() {
-        mdppScheduled = false;
-        mdppLastRunTime = Date.now();
-        try { addTopControls(); addControlsToAll(); applyFilters(); } catch (e) { console.error(e); }
-      }, 0);
-      return;
-    }
-
-    mdppDebounceTimer = setTimeout(function() {
-      if (!mdppScheduled) {
-        mdppScheduled = true;
-        mdppMutationCount = 0;
-        setTimeout(function() {
-          mdppScheduled = false;
-          mdppLastRunTime = Date.now();
-          try { addTopControls(); addControlsToAll(); applyFilters(); } catch (e) { console.error(e); }
-        }, 0);
-      }
-    }, MDPP_DEBOUNCE_DELAY);
-  }
-
-  // Optimized MutationObserver configuration
-  const mdppObserver = new MutationObserver(function(mutations) {
-    const hasRelevantMutations = mutations.some(function(mutation) {
-      if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-        return true;
-      }
-      if (mutation.type === 'attributes') {
-        const target = mutation.target;
-        if (target.classList && (
-            target.classList.contains('chapter-feed__container') ||
-            target.classList.contains('manga-card') ||
-            target.classList.contains('md-card') ||
-            target.tagName === 'A'
-        )) {
-          return true;
+    // If we've had many mutations in quick succession, run immediately
+    if (mutationCount >= MAX_MUTATIONS_BEFORE_IMMEDIATE) {
+        if (!scheduled) {
+            scheduled = true;
+            mutationCount = 0;
+            setTimeout(function() {
+                scheduled = false;
+                lastRunTime = Date.now();
+                try { handleBaseUrl(window.location.href); } catch (e) { console.error(e); }
+            }, 0);
         }
-      }
-      return false;
+        return;
+    }
+
+    // If enough time has passed since last run, schedule immediately
+    if (timeSinceLastRun >= MIN_RUN_INTERVAL && !scheduled) {
+        scheduled = true;
+        mutationCount = 0;
+        setTimeout(function() {
+            scheduled = false;
+            lastRunTime = Date.now();
+            try { handleBaseUrl(window.location.href); } catch (e) { console.error(e); }
+        }, 0);
+        return;
+    }
+
+    // Otherwise, debounce and wait for mutations to settle
+    debounceTimer = setTimeout(function() {
+        if (!scheduled) {
+            scheduled = true;
+            mutationCount = 0;
+            setTimeout(function() {
+                scheduled = false;
+                lastRunTime = Date.now();
+                try { handleBaseUrl(window.location.href); } catch (e) { console.error(e); }
+            }, 0);
+        }
+    }, DEBOUNCE_DELAY);
+}
+
+// Optimized MutationObserver configuration
+const observer = new MutationObserver(function(mutations) {
+    // Check if mutations are relevant (add nodes or change attributes)
+    const hasRelevantMutations = mutations.some(function(mutation) {
+        // Check for added nodes
+        if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+            return true;
+        }
+
+        // Check for attribute changes on relevant elements
+        if (mutation.type === 'attributes') {
+            const target = mutation.target;
+            // Only care about certain attributes or elements
+            if (target.classList && (
+                target.classList.contains('chapter-feed__container') ||
+                target.classList.contains('manga-card') ||
+                target.classList.contains('md-card') ||
+                target.tagName === 'A'
+            )) {
+                return true;
+            }
+        }
+
+        return false;
     });
 
     if (hasRelevantMutations) {
-      mdppScheduleRun();
+        scheduleRun();
     }
-  });
+});
 
-  // Load UI state from storage before starting
-  loadUIState();
+// ================ INITIALIZATION ================
+(function () {
+    "use strict";
 
-  // Start observing dynamic changes
-  mdppObserver.observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['class', 'href', 'style']
-  });
+    // Start queue handler
+    setTimeout(handle_queue, API_REQUEST_INTERVAL);
 
-  // Initial run
-  mdppScheduleRun();
+    // Setup MutationObserver for dynamic content
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'href', 'style'],
+        characterData: false // Don't need text changes
+    });
 
+    // Initial run
+    scheduleRun();
 })();
