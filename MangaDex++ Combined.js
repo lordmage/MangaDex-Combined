@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         MangaDex++ Enhanced v2.6.4 (with DataCleaner trigger)
-// @version      2.6.4-DC
+// @name         MangaDex++ Enhanced v2.6.5
+// @version      2.6.5
 // @copyright    Lordmage 2025
 // @namespace    https://github.com/lordmage/MangaDex-Combined
-// @description  Read / Ignore / Clear buttons on every manga card - Optimized performance + trigger for DataCleaner
+// @description  Read / Ignore / Clear buttons on every manga card - Optimized performance 
 // @author       @ Theo1996, MangaDexPP, patched by Workik
 // @homepageURL  https://github.com/lordmage/MangaDex-Combined
 // @updateURL    http://raw.githubusercontent.com/lordmage/MangaDex-Combined/refs/heads/Base/MangaDex%2B%2B%20Combined.js
@@ -431,50 +431,7 @@
         "button"
       );
 
-    cleanBtn.textContent =
-      "Run DataCleaner";
-
-    cleanBtn.style.width =
-      "100%";
-
-    cleanBtn.style.marginBottom =
-      "6px";
-
-    cleanBtn.addEventListener(
-      "click",
-      e => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        setTimeout(
-          () => {
-            try {
-              document.dispatchEvent(
-                new CustomEvent(
-                  "mangadexpp:run-datacleaner"
-                )
-              );
-
-              alert(
-                "DataCleaner triggered. If nothing happens, ensure the DataCleaner userscript is installed and enabled."
-              );
-            } catch (err) {
-              console.error(
-                "Failed to trigger DataCleaner",
-                err
-              );
-
-              alert(
-                "Failed to trigger DataCleaner — check console."
-              );
-            }
-          },
-          0
-        );
-      }
-    );
-
-    menu.appendChild(
+        menu.appendChild(
       cleanBtn
     );
 
