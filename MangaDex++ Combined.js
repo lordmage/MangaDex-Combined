@@ -181,7 +181,8 @@
     btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
 
     const menu = document.createElement("div");
-    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; [...]`;
+    // Use a full CSS text here rather than a truncated placeholder
+    menu.style.cssText = "display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px;";
 
     // Fix: Replace innerHTML with createElement to comply with Trusted Types CSP
     const title = document.createElement("div");
@@ -231,7 +232,8 @@
       // Make entry id easy to read for other code paths
       b.setAttribute("entryid", entryID);
       b.title = tooltip || label;
-      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(2[...][...]`;
+      // Use a complete cssText here
+      b.style.cssText = "padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; line-height: 24px; box-sizing: border-box; white-space: nowrap; font-family: inherit; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); transition: all 0.15s ease;";
 
       if (color) b.style.background = "transparent";
       b.onclick = (e) => {
@@ -372,7 +374,8 @@
       b.type = "button";
       b.value = label;
       b.title = tooltip || label;
-      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; line-height: 28px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.1); color: white;`;
+      // Use a complete style string rather than a truncated placeholder
+      b.style.cssText = "padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; line-height: 28px; box-sizing: border-box; font-family: inherit; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); transition: all 0.15s ease;";
       b.style.backgroundColor = get() ? color : "transparent";
       b.setAttribute("aria-pressed", get() ? "true" : "false");
 
