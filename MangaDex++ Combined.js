@@ -181,7 +181,7 @@
     btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
 
     const menu = document.createElement("div");
-    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color: #fff;`;
+    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; color[...]`;
 
     // Fix: Replace innerHTML with createElement to comply with Trusted Types CSP
     const title = document.createElement("div");
@@ -229,7 +229,7 @@
       b.value = label;
       b.className = cls;
       b.title = tooltip || label;
-      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); color: white;`;
+      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(2[...]`;
 
       if (color) b.style.background = "transparent";
       b.onclick = (e) => {
@@ -312,10 +312,23 @@
     });
 
     // Hide individual chapter entries marked as read (new control)
-    document.querySelectorAll(".chapter").forEach(ch => {
-      if (ch.closest(".layout-container")) return;
-      const isRead = ch.classList.contains("read") || !!ch.querySelector(".readMarker.opacity-40");
-      ch.style.display = (hideReadChapters && isRead) ? "none" : "";
+    // Use broader selectors and more robust read detection so the toggle reliably shows/hides read chapters.
+    document.querySelectorAll(".chapter, .chapter-row, .chapter-feed__chapter, .chapter-list__item, [class*='chapter']").forEach(ch => {
+      try {
+        if (ch.closest(".layout-container")) return;
+
+        const classAttr = ch.getAttribute("class") || "";
+        const hasReadClass = classAttr.split(/\s+/).includes("read") || classAttr.split(/\s+/).includes("is-read");
+        const hasReadMarker = !!ch.querySelector(".readMarker.opacity-40, .readMarker.read, .chapter-read-marker, .readMarker");
+        const ariaRead = ch.getAttribute("aria-read") === "true" || ch.getAttribute("aria-pressed") === "true";
+        const classTextIndicatesRead = /\bread\b/i.test(classAttr);
+
+        const isRead = hasReadClass || hasReadMarker || ariaRead || classTextIndicatesRead;
+
+        ch.style.display = (hideReadChapters && isRead) ? "none" : "";
+      } catch (err) {
+        // Safe-guard in case some matched nodes aren't actual chapter rows
+      }
     });
 
     if (DOES_HIDE_ALL_READ) hideAllReadFeed();
@@ -344,12 +357,15 @@
       b.type = "button"; b.value = label;
       b.title = tooltip || label;
       b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; border: 1px solid rgba(255,255,255,0.1); color: white;`;
+      // Reflect initial state visually and via aria-pressed
       b.style.backgroundColor = get() ? color : "transparent";
+      b.setAttribute("aria-pressed", get() ? "true" : "false");
 
       b.onclick = () => {
         set(!get());
         saveUIState();
         b.style.backgroundColor = get() ? color : "transparent";
+        b.setAttribute("aria-pressed", get() ? "true" : "false");
         applyFilters();
       };
       return b;
