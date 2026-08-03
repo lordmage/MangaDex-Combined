@@ -181,7 +181,8 @@
     btn.style.cssText = `padding: 0 0.8em; margin-left: 6px; border-radius: 4px; background-color: ${SETTINGS_BUTTON_COLOR}; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);`;
 
     const menu = document.createElement("div");
-    menu.style.cssText = `display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px; [...]`;
+    // Use a full CSS text here rather than a truncated placeholder
+    menu.style.cssText = "display: none; position: absolute; top: 110%; left: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; z-index: 999999; min-width: 200px; padding: 8px;";
 
     // Fix: Replace innerHTML with createElement to comply with Trusted Types CSP
     const title = document.createElement("div");
@@ -231,7 +232,8 @@
       // Make entry id easy to read for other code paths
       b.setAttribute("entryid", entryID);
       b.title = tooltip || label;
-      b.style.cssText = `padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; font-weight: 500; border: 1px solid rgba(2[...][...]`;
+      // Use a complete cssText here
+      b.style.cssText = "padding: 2px 6px; border-radius: 3px; cursor: pointer; background: transparent; font-size: 14px; min-width: 70px; height: 28px; line-height: 24px; box-sizing: border-box; white-space: nowrap; font-family: inherit; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); transition: all 0.15s ease;";
 
       if (color) b.style.background = "transparent";
       b.onclick = (e) => {
@@ -372,7 +374,8 @@
       b.type = "button";
       b.value = label;
       b.title = tooltip || label;
-      b.style.cssText = `padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; line-height: 28px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.1); color: white;`;
+      // Use a complete style string rather than a truncated placeholder
+      b.style.cssText = "padding: 0 0.8em; margin-left: 4px; border-radius: 3px; cursor: pointer; font-size: 14px; height: 28px; line-height: 28px; box-sizing: border-box; font-family: inherit; font-weight: 500; border: 1px solid rgba(255,255,255,0.1); transition: all 0.15s ease;";
       b.style.backgroundColor = get() ? color : "transparent";
       b.setAttribute("aria-pressed", get() ? "true" : "false");
 
@@ -407,21 +410,101 @@
     controls.appendChild(createSettingsCog());
   }
 
-  /* ================ OBSERVER ================ */
-  let timer;
-  const observer = new MutationObserver(() => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      addTopControls();
-      addControlsToAll();
-      applyFilters();
-    }, 50);
+  /* ================ OBSERVER (Optimized from Enhanced) ================ */
+  // Optimized scheduling with debouncing and throttling
+  let mdppScheduled = false;
+  let mdppLastRunTime = 0;
+  const MDPP_MIN_RUN_INTERVAL = 100; // Minimum 100ms between runs
+  const MDPP_DEBOUNCE_DELAY = 50; // Wait 50ms after last mutation before running
+
+  let mdppDebounceTimer = null;
+  let mdppMutationCount = 0;
+  const MDPP_MAX_MUTATIONS_BEFORE_IMMEDIATE = 10; // If many mutations happen, run immediately
+
+  function mdppScheduleRun() {
+    mdppMutationCount++;
+
+    if (mdppDebounceTimer) {
+      clearTimeout(mdppDebounceTimer);
+    }
+
+    const now = Date.now();
+    const timeSinceLastRun = now - mdppLastRunTime;
+
+    if (mdppMutationCount >= MDPP_MAX_MUTATIONS_BEFORE_IMMEDIATE) {
+      if (!mdppScheduled) {
+        mdppScheduled = true;
+        mdppMutationCount = 0;
+        setTimeout(function() {
+          mdppScheduled = false;
+          mdppLastRunTime = Date.now();
+          try { addTopControls(); addControlsToAll(); applyFilters(); } catch (e) { console.error(e); }
+        }, 0);
+      }
+      return;
+    }
+
+    if (timeSinceLastRun >= MDPP_MIN_RUN_INTERVAL && !mdppScheduled) {
+      mdppScheduled = true;
+      mdppMutationCount = 0;
+      setTimeout(function() {
+        mdppScheduled = false;
+        mdppLastRunTime = Date.now();
+        try { addTopControls(); addControlsToAll(); applyFilters(); } catch (e) { console.error(e); }
+      }, 0);
+      return;
+    }
+
+    mdppDebounceTimer = setTimeout(function() {
+      if (!mdppScheduled) {
+        mdppScheduled = true;
+        mdppMutationCount = 0;
+        setTimeout(function() {
+          mdppScheduled = false;
+          mdppLastRunTime = Date.now();
+          try { addTopControls(); addControlsToAll(); applyFilters(); } catch (e) { console.error(e); }
+        }, 0);
+      }
+    }, MDPP_DEBOUNCE_DELAY);
+  }
+
+  // Optimized MutationObserver configuration
+  const mdppObserver = new MutationObserver(function(mutations) {
+    const hasRelevantMutations = mutations.some(function(mutation) {
+      if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+        return true;
+      }
+      if (mutation.type === 'attributes') {
+        const target = mutation.target;
+        if (target.classList && (
+            target.classList.contains('chapter-feed__container') ||
+            target.classList.contains('manga-card') ||
+            target.classList.contains('md-card') ||
+            target.tagName === 'A'
+        )) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (hasRelevantMutations) {
+      mdppScheduleRun();
+    }
   });
 
   // Load UI state from storage before starting
   loadUIState();
 
-  observer.observe(document.body, { childList: true, subtree: true });
-  addTopControls();
-  addControlsToAll();
+  // Start observing dynamic changes
+  mdppObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'href', 'style']
+  });
+
+  // Initial run
+  mdppScheduleRun();
+
 })();
