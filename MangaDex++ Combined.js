@@ -1078,6 +1078,11 @@
           );
         }
       }
+
+      if (getComputedStyle(controls.parentNode).display === "flex" && getComputedStyle(controls.parentNode).flexDirection === "row") {
+        controls.parentNode.style.flexWrap = "wrap";
+        controls.style.flexBasis = "100%";
+      }
     } catch (e) {
       console.error(
         "Failed to insert controls:",
